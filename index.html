@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de movilidad urbana</title>
+<link rel="stylesheet" href="styles/index.css">
+<script type="text/javascript" src="app/simulator.js"></script>
+<script type="text/javascript" src="app/ej1.js"></script>
+<script type="text/javascript" src="app/ej2.js"></script>
+<script type="text/javascript" src="app/ej3.js"></script>
+<script type="text/javascript" src="app/genetico.js"></script>
+
+<script type="text/javascript">
+
+	var ejemplo = 1;
+	var map_buffer;
+	var x0 = 10;
+	var x1 = 500;
+	var y0 = 10;
+	var y1 = 500;
+
+	
+	var semaforos = [];
+
+	function initMap()
+	{
+		semaforos = [];
+		switch(ejemplo)
+		{
+			case 1:
+				initMap1();
+				break;
+			case 2:
+				initMap2();
+				break;
+		}
+	}
+
+
+	function restart()
+	{
+		// vuelvo a generar el mapa
+		initMap();
+		// actualizo los datos de la textura
+		gl.bindTexture(gl.TEXTURE_2D, map_texture);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, screen_dx, screen_dy, 0, gl.RGBA, gl.UNSIGNED_BYTE, map_buffer);
+		step = 0;
+		MIN_CO2 = -1;
+	
+	}
+
+	function optimizar()
+	{
+		// actualizo los valores de los controles: 
+		animating = false;
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+
+
+		for(let i=0;i<30;++i)
+		{
+			// establezco la configuracion de los semaforos
+			RED_TIME = 1 + Math.random()*254 | 0;
+
+
+			// evaluo la funcion de fitness
+			var co2 = Fitness();
+			// y me quedo con la mejor hasta ahora
+			if(co2<MIN_CO2 || MIN_CO2==-1)
+			{
+				MEJOR = RED_TIME;
+				MIN_CO2 = co2;
+			}
+		}
+
+		// muestro en pantalla la mejor solucion 
+		RED_TIME = MEJOR;
+		restart();
+		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
+		// y asi obtener el mapa de co2 para mostrar por pantalla
+		MIN_CO2 = Fitness();
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, accTexture);
+		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.useProgram(copyShader);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 50);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR,3)  + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+
+		
+	}
+	
+	
+	// me dan un tiempo de semaforo especifico y simulo para ver que pasa:
+	function simular()
+	{
+		// actualizo los valores de los controles: 
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		RED_TIME = parseInt(document.getElementById("time_red").value);
+		restart();
+		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
+		// y asi obtener el mapa de co2 para mostrar por pantalla
+		let CO2 = Fitness();
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, accTexture);
+		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.useProgram(copyShader);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 50);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("RED TIME="+fn(RED_TIME,3)  + "  EMISION CO2="+fn(CO2,10), 10,25);	
+		
+	}
+
+
+	function render(elapsed_time) 
+	{
+			
+		// ejecuto la simulacion (1 solo paso)
+		let co2 = simulate(1);
+
+        // muestro en pantalla
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, accTexture);
+		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.useProgram(copyShader);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
+
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		
+		// stats
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 50);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+        ctx.fillText("FPS =" + FPS.toFixed() + "RED TIME="+fn(RED_TIME,3)+ "  CO2="+fn(co2,10), 10,10);	
+    }
+
+
+	var FPS = 0;
+	var frame_time = 0;
+	var frame_count = 0;
+	var lastTime = 0;
+	var animating = false;
+
+
+	function RenderLoop()
+	{
+		var timeNow = new Date().getTime();
+		if (lastTime != 0) {
+			var elapsed = timeNow - lastTime;
+			if(animating)
+				render(elapsed);
+			frame_count++;
+			frame_time += elapsed;
+			if(frame_time>=1000)
+			{
+				FPS = frame_count;
+				frame_time-= 1000;
+				frame_count = 0;
+			}
+		}
+		lastTime = timeNow;
+		requestAnimationFrame(RenderLoop);
+	 }
+	
+	 function animar()
+	 {
+		restart();
+		animating = !animating;
+	 }
+
+    async function main() 
+	{
+		await webGLStart();
+		initMap();
+        RenderLoop();
+		render(0);
+	}
+
+
+	function set_ejemplo(ej)
+	{
+		ejemplo = ej;
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		RED_TIME = parseInt(document.getElementById("time_red").value);
+
+		restart();
+		for(let i=0;i<10;++i)
+			render(0);
+	}
+
+
+</script>
+
+</head>
+
+
+<body onload="main();">
+	
+	<div >
+		<button onclick="set_ejemplo(1);">Ejemplo 1</button>
+		<button onclick="set_ejemplo(2);">Ejemplo 2</button>
+		<button onclick="set_ejemplo(3);">Ejemplo 3</button>
+
+		Flujo de Trafico Calle horizontal:
+		<input type="range" min="1" max="250" value="150" id="calle_h">
+		Calle vertical:
+		<input type="range" min="1" max="250" value="10" id="calle_v">
+		<input type="button" value="Optimizar" onclick="optimizar()"/>	
+	</div>
+	<div>
+		Tiempo en Rojo del Semaforo Calle H (= Tiempo Verde Vertical):
+		<input type="text" min="1" max="255" value="100" id="time_red">
+		<input type="button" value="Calcular CO2" onclick="simular()"/>	
+		<input type="button" value="Iniciar / Parar Simulacion" onclick="animar()"/>	
+		<input type="button" value="Resetear" onclick="set_ejemplo(ejemplo);"/>	
+	</div>
+		
+	<div id="canvas_container" > 
+		<canvas id="canvas"  width="512" height="512" tabindex="1"></canvas>
+		<canvas id="text_canvas" width="512" height="512"></canvas>
+	</div>
+</body>
+</html>
