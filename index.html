@@ -7,6 +7,8 @@
 <script type="text/javascript" src="app/ej1.js"></script>
 <script type="text/javascript" src="app/ej2.js"></script>
 <script type="text/javascript" src="app/ej3.js"></script>
+<script type="text/javascript" src="app/ej4.js"></script>
+<script type="text/javascript" src="app/ej5.js"></script>
 <script type="text/javascript" src="app/genetico.js"></script>
 
 
@@ -32,6 +34,15 @@
 				break;
 			case 2:
 				initMap2();
+				break;
+			case 3:
+				initMap3();
+				break;
+			case 4:
+				initMap4();
+				break;
+			case 5:
+				initMap5();
 				break;
 		}
 	}
@@ -98,7 +109,54 @@
 
 		
 	}
+
+	function opt_rt()
+	{
+		animating = false;
+		optimizing=!optimizing;
+		init_opt_rt();
+	}
+
+
+	function init_opt_rt()
+	{
+		// actualizo los valores de los controles: 
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+		MIN_CO2 = -1;
+	}
 	
+	function optimizar_realtime()
+	{
+
+		// establezco la configuracion de los semaforos
+		RED_TIME = 1 + Math.random()*254 | 0;
+
+		// evaluo la funcion de fitness
+		var co2 = Fitness();
+		// y me quedo con la mejor hasta ahora
+		if(co2<MIN_CO2 || MIN_CO2==-1)
+		{
+			MEJOR = RED_TIME;
+			MIN_CO2 = co2;
+		}
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, accTexture);
+		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.useProgram(copyShader);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 50);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR,3)  + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+	}
 	
 	// me dan un tiempo de semaforo especifico y simulo para ver que pasa:
 	function simular()
@@ -163,6 +221,7 @@
 	var frame_count = 0;
 	var lastTime = 0;
 	var animating = false;
+	var optimizing = false;			// optimizar en real time
 
 
 	function RenderLoop()
@@ -172,6 +231,9 @@
 			var elapsed = timeNow - lastTime;
 			if(animating)
 				render(elapsed);
+			else
+			if(optimizing)
+				optimizar_realtime();
 			frame_count++;
 			frame_time += elapsed;
 			if(frame_time>=1000)
@@ -195,6 +257,26 @@
 	{
 		await webGLStart();
 		initMap();
+
+		var slider_h = document.getElementById("calle_h");
+		slider_h.oninput = function() 
+		{
+  			TRAFICO_H = this.value;
+			restart();
+			if(optimizing)
+				init_opt_rt();
+			
+		}
+		var slider_v = document.getElementById("calle_v");
+		slider_v.oninput = function() 
+		{
+  			TRAFICO_V = this.value;
+			restart();
+	   		if(optimizing)
+				init_opt_rt();
+		}
+
+
         RenderLoop();
 		render(0);
 	}
@@ -224,12 +306,15 @@
 		<button onclick="set_ejemplo(1);">Ejemplo 1</button>
 		<button onclick="set_ejemplo(2);">Ejemplo 2</button>
 		<button onclick="set_ejemplo(3);">Ejemplo 3</button>
+		<button onclick="set_ejemplo(4);">Ejemplo 4</button>
+		<button onclick="set_ejemplo(5);">Ejemplo 5</button>
 
 		Flujo de Trafico Calle horizontal:
 		<input type="range" min="1" max="250" value="150" id="calle_h">
 		Calle vertical:
 		<input type="range" min="1" max="250" value="10" id="calle_v">
 		<input type="button" value="Optimizar" onclick="optimizar()"/>	
+		<input type="button" value="Optimizar Realtime" onclick="opt_rt();"/>	
 	</div>
 	<div>
 		Tiempo en Rojo del Semaforo Calle H (= Tiempo Verde Vertical):

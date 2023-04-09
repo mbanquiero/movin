@@ -14,7 +14,7 @@ function initMap1()
 
     // flujo de trafico
     setGPixel(x0,300,map_buffer,TRAFICO_H);
-    setGPixel(300,y0,map_buffer,TRAFICO_V);
+    setGPixel(300,y0+10,map_buffer,TRAFICO_V);
 
     // semaforo del cruce 
     semaforos.push({x:300-3 , y:300});

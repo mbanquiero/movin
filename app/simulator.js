@@ -180,6 +180,7 @@ var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAni
 
 
 var accTexture, currTexture;
+var accTexture2, currTexture2;
 var accBuffer, currBuffer;
 
 function initRenderTexture() 
@@ -192,6 +193,7 @@ function initRenderTexture()
 	const type = gl.UNSIGNED_BYTE;
 	const data = null;
 	var Texture = [];
+	var Texture2 = [];
 	var Buffer = [];
 			
 	// accumulation textures
@@ -201,7 +203,7 @@ function initRenderTexture()
 		Buffer[i] = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, Buffer[i]);
 		
-		// Textura para guardar los colores
+		// Textura para guardar los primer tanda de datos
 		Texture[i] = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D, Texture[i]);
 		gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
@@ -211,13 +213,31 @@ function initRenderTexture()
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, Texture[i], level);	
+
+		// Textura para guardar segunda tanda de datos
+		Texture2[i] = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, Texture2[i]);
+		gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+					screen_dx, screen_dy, border,
+					format, type, data);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, Texture2[i], level);	
+
 	}	
 	
 	
 	currBuffer = Buffer[0];
 	currTexture = Texture[0];
+	currTexture2 = Texture2[0];
+
 	accBuffer = Buffer[1];
 	accTexture = Texture[1];
+	accTextur2 = Texture2[1];
+
+	gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+
 
 }
 
@@ -291,6 +311,7 @@ function initReduceTexture()
 			
 			// Post process 1
 			gl.bindFramebuffer(gl.FRAMEBUFFER, currBuffer);
+			gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);			
 			gl.useProgram(postProcessProgram);
 			gl.viewport(0, 0, screen_dx, screen_dy);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -305,11 +326,15 @@ function initReduceTexture()
 			gl.bindFramebuffer(gl.FRAMEBUFFER, accBuffer);
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, currTexture);
+			gl.activeTexture(gl.TEXTURE2);
+			gl.bindTexture(gl.TEXTURE_2D, currTexture2);
+
 			gl.viewport(0, 0, screen_dx, screen_dy);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			gl.useProgram(reShader);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler'), 0);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSamplerMap'), 1);
+			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler2'), 2);
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 	
 		}
@@ -321,6 +346,7 @@ function initReduceTexture()
 		let W = screen_dx;
 		gl.useProgram(initCO2Shader);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[0]);
+		gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.NONE]);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, accTexture);
 		gl.viewport(0, 0, screen_dx, screen_dx);
@@ -362,6 +388,7 @@ function initReduceTexture()
 	{
 		if(typeof K === 'undefined')
 			K = vel_sim
+
 		for(let Q=0;Q<K;++Q)
 		{
 			gl.activeTexture(gl.TEXTURE0);
@@ -371,6 +398,7 @@ function initReduceTexture()
 			
 			// Post process 1
 			gl.bindFramebuffer(gl.FRAMEBUFFER, currBuffer);
+			gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
 			gl.useProgram(postProcessProgram);
 			gl.viewport(0, 0, screen_dx, screen_dy);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -385,11 +413,15 @@ function initReduceTexture()
 			gl.bindFramebuffer(gl.FRAMEBUFFER, accBuffer);
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, currTexture);
+			gl.activeTexture(gl.TEXTURE2);
+			gl.bindTexture(gl.TEXTURE_2D, currTexture2);
+
 			gl.viewport(0, 0, screen_dx, screen_dy);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			gl.useProgram(reShader);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler'), 0);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSamplerMap'), 1);
+			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler2'), 2);
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 	
 		}
@@ -401,6 +433,7 @@ function initReduceTexture()
 		let W = screen_dx;
 		gl.useProgram(initCO2Shader);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[0]);
+		gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.NONE]);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, accTexture);
 		gl.viewport(0, 0, screen_dx, screen_dx);
@@ -424,10 +457,13 @@ function initReduceTexture()
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 		}
 
+
 		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[reduceBuffer.length-1]);
 		var p = new Uint8Array(4);
 		gl.readPixels(0, 0, 1,1, gl.RGBA, gl.UNSIGNED_BYTE, p);
 		let co2 = p[0]+p[1]*256+p[2]*256*256+p[3]*256*256*256;
+
+
 
 		return co2;		// devuelve la cantidad de co2 emitido
 		
