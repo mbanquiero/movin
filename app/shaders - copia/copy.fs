@@ -22,34 +22,8 @@ void main(void) {
     if(tx.g>0.0)	
         rgb = vec3(1.0 , 1.0, 0.0);			// auto
     else
-    if(tx2.r>0.0)
-    {
-        // carretera
-        /* 
-        opcion para dibujar con distintos colores
-        int ruta_dir =  int(tx2.r*255.0+0.5);
-        switch(ruta_dir)
-        {
-            case 1:
-                rgb = vec3(0.5,0.1,0.1);		
-                break;
-            case 2:
-                rgb = vec3(0.1,0.5,0.1);		
-                break;
-            case 4:
-                rgb = vec3(0.1,0.1,0.5);		
-                break;
-            case 8:
-                rgb = vec3(0.1,0.5,0.5);		
-                break;
-            default:
-                rgb = vec3(1.0,0.0,1.0);		
-                break;
-        }
-        */
-        rgb = vec3(0.3);		
-
-    }
+    if(tx2.r>0.0)	
+        rgb = vec3(0.3,0.3,0.3);		// carretera
 	else
     {
         // co2 de los vecinos
@@ -62,6 +36,10 @@ void main(void) {
     
 
     FragColor.rgb = rgb;
+
+    //float co2 = tx.b;
+    //FragColor.rgb = vec3(co2);
+
     FragColor.a = 1.0;
 }
 

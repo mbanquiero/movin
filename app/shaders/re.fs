@@ -23,9 +23,10 @@ void main(void) {
     int px = int(vTextureCoord.x*512.0);
     int py = int(vTextureCoord.y*512.0);
     vec4 tx = texelFetch(uSamplerMap,ivec2(px,py),0);
+    vec4 tx2 = texelFetch(uSampler2,ivec2(px,py),0);
 
     rta = texelFetch(uSampler,ivec2(px,py),0);
-    rta2 = texelFetch(uSampler2,ivec2(px,py),0);
+    rta2 = vec4(0);             // no usado
 
 
     if(tx.r==0.0)
@@ -36,67 +37,52 @@ void main(void) {
 
     // verifico si tiene autos, si se mueven o no, los elimino de la celda
     int curr_auto = int(rta.g*255.0+0.5);
+    const int MASK_DIR[4] = int[](DERECHA,IZQUIERDA,ARRIBA,ABAJO);
 
     if(curr_auto!=0)
     {
-        bool flag_der = int(rta2.r*255.0+0.5)!=0;
-        bool flag_izq = int(rta2.g*255.0+0.5)!=0;
-        bool flag_arr = int(rta2.b*255.0+0.5)!=0;
-        bool flag_aba = int(rta2.a*255.0+0.5)!=0;
+        bool flags[4] = bool[] (
+                                    int(tx2.r*255.0+0.5)!=0,
+                                    int(tx2.g*255.0+0.5)!=0,
+                                    int(tx2.b*255.0+0.5)!=0,
+                                    int(tx2.a*255.0+0.5)!=0
+                                );
 
-        // la celda tiene uno o mas autos, si lo puedo mover, la celda queda vacia
-        if(flag_arr)
-        {
-            rta.b+=1.0/255.0;
-            curr_auto&=~ARRIBA;
-        }
-        else
-            // si esta atascado en trafico, genero emision de co2
-            rta.b+=10.0/255.0;
+        const int co2_x_step = 10;
+        int co2 = int(rta.a*255.0+0.5) * 256 + int(rta.b*255.0+0.5);
 
-        if(flag_aba)
+        for(int i=0;i<4;++i)
         {
-            curr_auto&=~ABAJO;
-            rta.b+=1.0/255.0;
+            if(flags[i])
+                // la celda tiene uno o mas autos, si lo puedo mover, la celda queda vacia
+                curr_auto&=~MASK_DIR[i];
+            else
+                // si esta atascado en trafico, genero emision de co2
+                co2+=co2_x_step;
         }
-        else
-            rta.b+=10.0/255.0;
-
-        if(flag_der)
-        {
-            rta.b+=1.0/255.0;
-            curr_auto&=~DERECHA;
-        }
-        else
-            rta.b+=10.0/255.0;
-
-        if(flag_izq)
-        {
-            rta.b+=1.0/255.0;
-            curr_auto&=~IZQUIERDA;
-        }
-        else
-            rta.b+=10.0/255.0;
+        rta.a = float(co2/256)/255.0;
+        rta.b = float(co2%256)/255.0;
 
     }
 
     // determino todos los lugares donde hay ruta libre alrededor de donde estoy
     const ivec2 K[8] = ivec2[](
-                ivec2(-1,1),ivec2(0,1),ivec2(1,1),
-                ivec2(-1,0 ),            ivec2(1,0),
-                ivec2(-1,-1),ivec2(0,-1),  ivec2(1,-1));
-
-    // 0 1 2
-    // 3 X 4
-    // 5 6 7
-
+                ivec2(-1,0),ivec2(1,0),        // izquierda,derecha
+                ivec2(0,-1),ivec2(0,1),         // abajo, arriba
+                ivec2(-1,-1),ivec2(1,-1),      // abajo izquierda,abajo derecha
+                ivec2(-1,1),ivec2(1,1)         // arriba izquierda,arriba derecha
+                );
+    const int index[8] = int[](
+                4,3,
+                1,6,
+                2,0,
+                7,5
+                );
     
-    vec4 tmpSampler[8];
     int index_value[32];
     for(int t = 0;t<8;++t)
     {
-        ivec2 pos = ivec2(px,py) - K[t];
-        tmpSampler[t] =  texelFetch(uSampler,pos,0);
+        ivec2 pos = ivec2(px,py) + K[t];
         vec4 tx2 = texelFetch(uSampler2,pos,0);
         index_value[4*t+0] = int(tx2.r*255.0 + 0.5)-1;
         index_value[4*t+1] = int(tx2.g*255.0 + 0.5)-1;
@@ -104,57 +90,28 @@ void main(void) {
         index_value[4*t+3] = int(tx2.a*255.0 + 0.5)-1;
     }
 
-    const int p_ndx[20] = int[](
-                        4,2,7,1,6,              // derecho
-                        3,0,5,1,6,              // izquierdo
-                        1,0,2,3,4,              // arriba
-                        6,5,7,3,4               // abajo
-                        );
-
-    const int MASK_DIR[4] = int[](DERECHA,IZQUIERDA,ARRIBA,ABAJO);
+    int ruta_dir =  int(tx.r*255.0+0.5);
 
     // ahora verifico si le ingresan autos
+    for(int j=0;j<8;++j)
+    for(int i=0;i<4;++i)
     {
-        for(int i=0;i<4;++i)
-        for(int j=0;j<5;++j)
+        int ndx = index_value[j*4+i];
+        if(ndx==index[j])
         {
-            int index = p_ndx[i*5+j];
-            vec4 t = tmpSampler[index];
-            int auto = int(t.g*255.0 + 0.5);
-            int ndx = index_value[index*4+i];
-            if((auto&MASK_DIR[i])!=0 && ndx==index)
+            if(j<3)
+            {
+                // mantiene la direccion
                 curr_auto |= MASK_DIR[i];
+            }
+            else
+            {
+                // el auto gira
+                curr_auto &= ~MASK_DIR[i];
+                curr_auto |= ruta_dir;
+            }
         }
-
     }
     rta.g = float(curr_auto) / 255.0;
-
-    
 }
 
-
-
-/*
-        // --------------------------------------------
-        t = texelFetch(uSampler,ivec2(px+1,py),0);
-        t2 = texelFetch(uSampler2,ivec2(px+1,py),0);
-        auto = int(t.g*255.0 + 0.5);
-        ndx = int(t2.g*255.0 + 0.5)-1;
-        if((auto&IZQUIERDA)!=0 && ndx==3)
-            curr_auto |= IZQUIERDA;
-
-
-        t = texelFetch(uSampler,ivec2(px,py-1),0);
-        t2 = texelFetch(uSampler2,ivec2(px,py-1),0);
-        auto = int(t.g*255.0 + 0.5);
-        ndx = int(t2.b*255.0 + 0.5)-1;
-        if((auto&ARRIBA)!=0 && ndx==1)
-            curr_auto |= ARRIBA;
-
-        t = texelFetch(uSampler,ivec2(px,py+1),0);
-        t2 = texelFetch(uSampler2,ivec2(px,py+1),0);
-        auto = int(t.g*255.0 + 0.5);
-        ndx = int(t2.a*255.0 + 0.5)-1;
-        if((auto&ABAJO)!=0 && ndx==6)
-            curr_auto |= ABAJO;
-*/

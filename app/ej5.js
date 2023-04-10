@@ -2,42 +2,30 @@ function initMap5()
 {
     map_buffer = new Uint8Array(screen_dx*screen_dy*4);
 
-    let p = false;
+    /*    
+    line(x0,y0,x0+100,y0+100,map_buffer);
+    line(x0+100,y0+100,x0+300,y0+30,map_buffer);
+    setGPixel(x0,y0,map_buffer,10);
+    */
 
-    // carretera horizontal
-    for(let j=100;j<500;j+=12)
-    {
-        for(let i=x0;i<x1;++i)
-            setRPixel(i,j,map_buffer,p?2:4);
-        setGPixel((x0+x1)/2,j,map_buffer,TRAFICO_H);
-        p = !p;
-    }
-    
-    // carreteras vertical
-    for(let j=100;j<500;j+=16)
-    {
-        for(let i=y0;i<y1;++i)
-            setRPixel(j,i,map_buffer,p?1:8);
-        setGPixel(j,(y0+y1)/2,map_buffer,TRAFICO_V);
-        p = !p;
 
-        // semaforo del cruce 
-        if(j%50==0)
+    for(let j=0;j<100;++j)
+    {
+        let x0 = 100 + Math.random()*256 | 0 ;
+        let y0 = 100 + Math.random()*256 | 0 ;
+        setGPixel(x0,y0,map_buffer,100);
+        let an = 0;
+        for(let i=0;i<10;++i)
         {
-            for(let i=y0+100;i<y1;i+=50)
-            {
-                semaforos.push({x:j-3 , y:i});
-                semaforos.push({x:j , y:i-3});
-            }
+            let x1 = x0 + 20*Math.cos(an) | 0;
+            let y1 = y0 + 20*Math.sin(an) | 0;
+            line(x0,y0,x1,y1,map_buffer);
+            x0 = x1;
+            y0 = y1;
+
+            an += Math.random()*Math.PI/4.0;
         }
-
     }
-
-    // carretera diagonal
-    for(let i=x0;i<x1;i++)
-        setRPixel(i,i,map_buffer,10);
-    setGPixel(x0+10,x0+10,map_buffer,TRAFICO_V);
-
 
     semaforos.forEach(s => 	{
         setSemaforo(s.x,s.y,map_buffer,RED_TIME,0);});

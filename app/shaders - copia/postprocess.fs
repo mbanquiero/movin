@@ -57,9 +57,9 @@ float rnd(inout int prev)
 void main(void) {
 
     // devuelve:
-    // rta.G info del auto, rta.R = semaforo en rojo , rta.BA=huella co2
+    // rta.G info del auto, rta.R = semaforo en rojo , rta.B=huella co2
 
-    rta = vec4(0.0);
+    rta = vec4(0.0, 0.0, 0.0 , 1.0);
     rta2 = vec4(0.0);
     if(step==0)
         return;
@@ -130,11 +130,11 @@ void main(void) {
     // de todos esos lugares, dependiendo de la direccion del auto, algunos tienen mas prioridad
     // que otros, y otros no se pueden acceder
 
-    const int p_ndx[32] = int[](
-                        4,2,7,1,6,0,5,3,              // derecho
-                        3,0,5,1,6,2,7,4,              // izquierdo
-                        1,0,2,3,4,5,7,6,              // arriba
-                        6,5,7,3,4,0,2,1              // abajo
+    const int p_ndx[28] = int[](
+                        4,2,7,1,6,0,5,              // derecho
+                        3,0,5,1,6,2,7,              // izquierdo
+                        1,0,2,3,4,5,7,              // arriba
+                        6,5,7,3,4,0,2               // abajo
                         );
 
     const int MASK_DIR[4] = int[](DERECHA,IZQUIERDA,ARRIBA,ABAJO);
@@ -145,9 +145,9 @@ void main(void) {
     {
         bool fl = false;
         bool hay_ruta = false;
-        for(int t = 0;t<5  && !fl;++t)
+        for(int t = 0;t<7  && !fl;++t)
         {
-            int index = p_ndx[i*8+t];
+            int index = p_ndx[i*7+t];
             if(ruta[index])
             {
                 hay_ruta = true;

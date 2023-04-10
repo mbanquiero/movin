@@ -490,7 +490,7 @@ function initReduceTexture()
 	function setRPixel(x,y,data , r)
 	{
 		var pos = (y*screen_dx + x)*4;
-		data[pos] |= r;
+		data[pos] = r;
 	}
 
 	function setGPixel(x,y,data , g)
@@ -520,6 +520,28 @@ function initReduceTexture()
 		data[pos+3] = t0;
 	}
 
+	function line(x0, y0, x1, y1,data) 
+	{
+		var dx = Math.abs(x1 - x0);
+		var dy = Math.abs(y1 - y0);
+		var sx = (x0 < x1) ? 1 : -1;
+		var sy = (y0 < y1) ? 1 : -1;
+		var err = dx - dy;
+
+		var dir = dx>dy ? (sx==1?2:4) : (sy==1?1:8);
+	 
+		while(true) 
+		{
+		   setRPixel(x0, y0 , data , dir);
+	 
+		   if ((x0 === x1) && (y0 === y1)) break;
+		   var e2 = 2*err;
+		   if (e2 > -dy) { err -= dy; x0  += sx; }
+		   if (e2 < dx) { err += dx; y0  += sy; }
+		}
+	 }
+
+
 	    function getStrShader(id) {
         var shaderScript = document.getElementById(id);
         if (!shaderScript) {
@@ -536,6 +558,7 @@ function initReduceTexture()
         }
 		return str;
 	}
+
 
 	var textCanvas;
 	var ctx = null;
