@@ -52,7 +52,9 @@ void main(void) {
         int co2 = int(rta.a*255.0+0.5) * 256 + int(rta.b*255.0+0.5);
 
         for(int i=0;i<4;++i)
+        if((curr_auto&MASK_DIR[i])!=0)
         {
+            co2++;          // emision por co2
             if(flags[i])
                 // la celda tiene uno o mas autos, si lo puedo mover, la celda queda vacia
                 curr_auto&=~MASK_DIR[i];
@@ -99,7 +101,7 @@ void main(void) {
         int ndx = index_value[j*4+i];
         if(ndx==index[j])
         {
-            if(j<3)
+            if(true) //j<3)
             {
                 // mantiene la direccion
                 curr_auto |= MASK_DIR[i];

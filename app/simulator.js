@@ -1,7 +1,13 @@
+
+// globales
 var screen_dx = 512.0;
 var screen_dy = 512.0;
 var step = 0;
 var vel_sim = 1;
+var map_buffer = null;
+var semaforos = [];
+var cant_semaforos = 0;
+
 
 // chrome render loop hack
 (function() {
@@ -280,10 +286,12 @@ function initReduceTexture()
 	// render loop
 	
 	var step = 0;
-	var RED_TIME = 240;
 	var TRAFICO_H = 50;
 	var TRAFICO_V = 50;
-	var MEJOR = RED_TIME;
+	var RED_TIME = [240];
+	var OFFSET = [0];
+	var MEJOR_RED_TIME = RED_TIME.slice();
+	var MEJOR_OFFSET = OFFSET.slice();
 	var MIN_CO2 = -1;
 
 	
@@ -292,8 +300,7 @@ function initReduceTexture()
 			
 		// establezo la configuracion de los semaforos
 		semaforos.forEach(s => 	{
-			setSemaforo(s.x,s.y,map_buffer,RED_TIME,0);});
-
+			setSemaforo(s.x,s.y,map_buffer,RED_TIME[s.n],OFFSET[s.n]);});
 
 		// actualizo los datos de la textura
 		gl.bindTexture(gl.TEXTURE_2D, map_texture);
@@ -520,8 +527,18 @@ function initReduceTexture()
 		data[pos+3] = t0;
 	}
 
-	function line(x0, y0, x1, y1,data) 
+
+	function line(x0, y0, x1, y1,data, inv) 
 	{
+		if(typeof inv!=="undefined" && inv)
+		{
+			let aux = x1;
+			x1 = x0;
+			x0 = aux;
+			aux = y1;
+			y1 = y0;
+			y0 = aux;
+		}
 		var dx = Math.abs(x1 - x0);
 		var dy = Math.abs(y1 - y0);
 		var sx = (x0 < x1) ? 1 : -1;
@@ -613,3 +630,18 @@ function initReduceTexture()
 		return (' '.repeat(n)  + x.toFixed()).slice(-n);
 	}
 
+	// link con algoritmo genetico
+	// setea la configuracion de TODOS los semaforos
+	// semaforos es una variable global 
+
+	function setSemaforosConfig()
+	{
+		// establezo la configuracion de los semaforos
+		semaforos.forEach(s => 	{
+			let red_time = s.n< RED_TIME.length ? RED_TIME[s.n] : RED_TIME[0];
+			let offset = s.n< OFFSET.length ? OFFSET[s.n] : OFFSET[0];
+			setSemaforo(s.x,s.y,map_buffer,red_time,offset);
+			});
+	}
+
+	

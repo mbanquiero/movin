@@ -93,7 +93,7 @@ void main(void) {
 
         int tr = int(tx.b*255.0+0.5)-1;
         int t0 = int(tx.a*255.0+0.5);
-        bool semaforo_rojo = (step*4+t0)%256<tr;
+        bool semaforo_rojo = (step*1+t0)%256<tr;
         if((arr || aba))
             semaforo_rojo = !semaforo_rojo;
         
@@ -145,7 +145,7 @@ void main(void) {
     {
         bool fl = false;
         bool hay_ruta = false;
-        for(int t = 0;t<5  && !fl;++t)
+        for(int t = 0;t<8  && !fl;++t)
         {
             int index = p_ndx[i*8+t];
             if(ruta[index])

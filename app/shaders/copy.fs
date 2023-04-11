@@ -56,10 +56,14 @@ void main(void) {
         float co2 = 0.0;
         for (int i = 0; i < kernel_size; ++i)
         for (int j = 0; j < kernel_size; ++j)
-            co2 += texelFetch(uSampler,ivec2(px+i- kernel_r,py+ j- kernel_r),0).b * Kernel[i] * Kernel[j];
+        {
+            vec4 c = texelFetch(uSampler,ivec2(px+i- kernel_r,py+ j- kernel_r),0);
+            int x = int(c.a*255.0+0.5) * 256 + int(c.b*255.0+0.5);
+            co2 += float(x)/255.0* Kernel[i] * Kernel[j];
+        }
         rgb = vec3(co2 , 0.0 , 0.0);
+
     }
-    
 
     FragColor.rgb = rgb;
     FragColor.a = 1.0;

@@ -9,21 +9,19 @@
 <script type="text/javascript" src="app/ej3.js"></script>
 <script type="text/javascript" src="app/ej4.js"></script>
 <script type="text/javascript" src="app/ej5.js"></script>
+<script type="text/javascript" src="app/ej6.js"></script>
 <script type="text/javascript" src="app/genetico.js"></script>
 
 
 <script type="text/javascript">
 
 	var ejemplo = 1;
-	var map_buffer;
 	var x0 = 10;
 	var x1 = 500;
 	var y0 = 10;
 	var y1 = 500;
 
 	
-	var semaforos = [];
-
 	function initMap()
 	{
 		semaforos = [];
@@ -41,8 +39,11 @@
 			case 4:
 				initMap4();
 				break;
-			case 5:
+				case 5:
 				initMap5();
+				break;
+			case 6:
+				initMap6();
 				break;
 		}
 	}
@@ -60,6 +61,16 @@
 	
 	}
 
+	// simula una optimizacion al alzar
+	function random_optimize()
+	{
+		for(let n=0;n<cant_semaforos;++n)
+		{
+			RED_TIME[n] = 1 + Math.random()*254 | 0;
+			OFFSET[n] = 1 + Math.random()*254 | 0;
+		}
+	}
+
 	function optimizar()
 	{
 		// actualizo los valores de los controles: 
@@ -72,21 +83,22 @@
 		for(let i=0;i<30;++i)
 		{
 			// establezco la configuracion de los semaforos
-			RED_TIME = 1 + Math.random()*254 | 0;
-
+			random_optimize();
 
 			// evaluo la funcion de fitness
 			var co2 = Fitness();
 			// y me quedo con la mejor hasta ahora
 			if(co2<MIN_CO2 || MIN_CO2==-1)
 			{
-				MEJOR = RED_TIME;
+				MEJOR_RED_TIME = RED_TIME.slice();
+				MEJOR_OFFSET = OFFSET.slice();
 				MIN_CO2 = co2;
 			}
 		}
 
 		// muestro en pantalla la mejor solucion 
-		RED_TIME = MEJOR;
+		RED_TIME = MEJOR_RED_TIME.slice();
+		OFFSET = MEJOR_OFFSET.slice();
 		restart();
 		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
 		// y asi obtener el mapa de co2 para mostrar por pantalla
@@ -105,7 +117,72 @@
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
-		ctx.fillText("MEJOR RED TIME="+fn(MEJOR,3)  + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0],3) + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+
+		
+	}
+
+	// OPTIMIZACION CON ALGORITMO GENETICO
+	function optimizarGA()
+	{
+		// hack para darle tiempo a dibujar en pantalla que esta optimizando...
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.fillStyle = "black";
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("OPTIMIZANDO....", 10,25);	
+		// espera una decima de segundo y llama a la funcion de optimizar
+		setTimeout(optimizarGAThread,100);
+	}
+
+	function optimizarGAThread()
+	{
+
+		// actualizo los valores de los controles: 
+		animating = false;
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+
+
+		// llamo al algoritmo genetico
+		const populationSize = 100;
+  		const individualLength = cant_semaforos*2;
+	  	const mutationRate = 0.01;
+  		const generations = 100;
+		const bestIndividual = geneticAlgorithm(populationSize, individualLength, mutationRate, generations);
+
+    	// seteo la configuracion de los semaforos desde la info del cromosoma del individuo
+		MEJOR_RED_TIME = [];
+		MEJOR_OFFSET = [];
+		for(let i = 0;i<cant_semaforos;++i)
+		{
+			MEJOR_RED_TIME[i] = bestIndividual[2*i];		// el primer byte representa el tiempo rojo
+			MEJOR_OFFSET[i] = bestIndividual[2*i+1];		// el segundo byte representa el offset de tiempo
+		}
+
+		// muestro en pantalla la mejor solucion 
+		RED_TIME = MEJOR_RED_TIME.slice();
+		OFFSET = MEJOR_OFFSET.slice();
+		restart();
+		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
+		// y asi obtener el mapa de co2 para mostrar por pantalla
+		MIN_CO2 = Fitness();
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, accTexture);
+		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.useProgram(copyShader);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 50);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0],3) + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
 
 		
 	}
@@ -131,14 +208,15 @@
 	{
 
 		// establezco la configuracion de los semaforos
-		RED_TIME = 1 + Math.random()*254 | 0;
+		random_optimize();
 
 		// evaluo la funcion de fitness
 		var co2 = Fitness();
 		// y me quedo con la mejor hasta ahora
 		if(co2<MIN_CO2 || MIN_CO2==-1)
 		{
-			MEJOR = RED_TIME;
+			MEJOR_RED_TIME = RED_TIME.slice();
+			MEJOR_OFFSET = OFFSET.slice();
 			MIN_CO2 = co2;
 		}
 
@@ -155,16 +233,34 @@
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
-		ctx.fillText("MEJOR RED TIME="+fn(MEJOR,3)  + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0],3)  + "  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
 	}
-	
+
+	function tomar_valores()
+	{
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		RED_TIME = [
+				parseInt(document.getElementById("time_red_0").value),
+				parseInt(document.getElementById("time_red_1").value),
+				parseInt(document.getElementById("time_red_2").value),
+				parseInt(document.getElementById("time_red_3").value)
+			];
+		OFFSET = [
+		parseInt(document.getElementById("offset_0").value),
+		parseInt(document.getElementById("offset_1").value),
+		parseInt(document.getElementById("offset_2").value),
+		parseInt(document.getElementById("offset_3").value)
+			];
+
+	}
+
 	// me dan un tiempo de semaforo especifico y simulo para ver que pasa:
 	function simular()
 	{
 		// actualizo los valores de los controles: 
-		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
-		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
-		RED_TIME = parseInt(document.getElementById("time_red").value);
+		tomar_valores();
+
 		restart();
 		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
 		// y asi obtener el mapa de co2 para mostrar por pantalla
@@ -184,7 +280,7 @@
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
-		ctx.fillText("RED TIME="+fn(RED_TIME,3)  + "  EMISION CO2="+fn(CO2,10), 10,25);	
+		ctx.fillText("RED TIME="+fn(RED_TIME[0],3)  + "  EMISION CO2="+fn(CO2,10), 10,25);	
 		
 	}
 
@@ -212,7 +308,7 @@
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
-        ctx.fillText("FPS =" + FPS.toFixed() + "RED TIME="+fn(RED_TIME,3)+ "  CO2="+fn(co2,10), 10,10);	
+        ctx.fillText("FPS =" + FPS.toFixed() + "RED TIME="+fn(RED_TIME[0],3)+ "  CO2="+fn(co2,10), 10,10);	
     }
 
 
@@ -285,10 +381,7 @@
 	function set_ejemplo(ej)
 	{
 		ejemplo = ej;
-		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
-		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
-		RED_TIME = parseInt(document.getElementById("time_red").value);
-
+		tomar_valores();
 		restart();
 		for(let i=0;i<10;++i)
 			render(0);
@@ -303,11 +396,12 @@
 <body onload="main();">
 	
 	<div >
-		<button onclick="set_ejemplo(1);">Ejemplo 1</button>
-		<button onclick="set_ejemplo(2);">Ejemplo 2</button>
-		<button onclick="set_ejemplo(3);">Ejemplo 3</button>
-		<button onclick="set_ejemplo(4);">Ejemplo 4</button>
-		<button onclick="set_ejemplo(5);">Ejemplo 5</button>
+		<button onclick="set_ejemplo(1);">Ej 1</button>
+		<button onclick="set_ejemplo(2);">Ej 2</button>
+		<button onclick="set_ejemplo(3);">Ej 3</button>
+		<button onclick="set_ejemplo(4);">Ej 4</button>
+		<button onclick="set_ejemplo(5);">Ej 5</button>
+		<button onclick="set_ejemplo(6);">Ej 6</button>
 
 		Flujo de Trafico Calle horizontal:
 		<input type="range" min="1" max="250" value="150" id="calle_h">
@@ -315,10 +409,20 @@
 		<input type="range" min="1" max="250" value="10" id="calle_v">
 		<input type="button" value="Optimizar" onclick="optimizar()"/>	
 		<input type="button" value="Optimizar Realtime" onclick="opt_rt();"/>	
+		<input type="button" value="Optimizar Genetico" onclick="optimizarGA()"/>	
 	</div>
 	<div>
-		Tiempo en Rojo del Semaforo Calle H (= Tiempo Verde Vertical):
-		<input type="text" min="1" max="255" value="100" id="time_red">
+		Cromosoma:
+		<input type="text" min="1" max="255" value="100" size="3" id="time_red_0">
+		<input type="text" min="1" max="255" value="0" size="3" id="offset_0">
+		<input type="text" min="1" max="255" value="100" size="3" id="time_red_1">
+		<input type="text" min="1" max="255" value="50" size="3" id="offset_1">
+		<input type="text" min="1" max="255" value="100" size="3" id="time_red_2">
+		<input type="text" min="1" max="255" value="100" size="3" id="offset_2">
+		<input type="text" min="1" max="255" value="100" size="3" id="time_red_3">
+		<input type="text" min="1" max="255" value="150" size="3" id="offset_3">
+
+
 		<input type="button" value="Calcular CO2" onclick="simular()"/>	
 		<input type="button" value="Iniciar / Parar Simulacion" onclick="animar()"/>	
 		<input type="button" value="Resetear" onclick="set_ejemplo(ejemplo);"/>	

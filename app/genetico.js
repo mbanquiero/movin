@@ -1,7 +1,22 @@
 // Definir la función de fitness
+
+//Mariano: modifique esta funcion para que le pase a las variables RED_TIME y OFFSET los parametros
 function fitness(individual) {
     // En este ejemplo, la función de fitness simplemente suma los valores de los genes
-    return individual.reduce((a, b) => a + b, 0);
+    //return individual.reduce((a, b) => a + b, 0);
+
+    // seteo la configuracion de los semaforos desde la info del cromosoma del individuo
+		RED_TIME = [];
+		OFFSET = [];
+		for(let i = 0;i<cant_semaforos;++i)
+		{
+      RED_TIME[i] = individual[2*i];		// el primer byte representa el tiempo rojo
+      OFFSET[i] = individual[2*i+1];		// el segundo byte representa el offset de tiempo
+		}
+
+    // llamo al simulador para evalua el total de co2 de esta configuracion de semaforos    
+    return Fitness();
+
   }
   
   // Definir la población inicial
@@ -10,7 +25,9 @@ function fitness(individual) {
     for (let i = 0; i < populationSize; i++) {
       const individual = [];
       for (let j = 0; j < individualLength; j++) {
-        individual.push(Math.round(Math.random()));
+        // Mariano: modifique esta funcion para que llene con enteros del 1 al 255
+        individual.push(Math.random()*255 | 0);
+        //individual.push(Math.round(Math.random()));
       }
       population.push(individual);
     }
@@ -42,7 +59,9 @@ function fitness(individual) {
   function mutate(individual, mutationRate) {
     for (let i = 0; i < individual.length; i++) {
       if (Math.random() < mutationRate) {
-        individual[i] = 1 - individual[i];
+        // Mariano: modifique esta funcion para sume o reste un cierto valor
+        // individual[i] = 1 - individual[i];
+        individual[i] = ((individual[i] + Math.random()*10)|0)%256;
       }
     }
     return individual;
@@ -67,6 +86,7 @@ function fitness(individual) {
     return bestIndividual;
   }
   
+  /*
   // Ejemplo de uso del algoritmo genético
   const populationSize = 100;
   const individualLength = 10;
@@ -75,4 +95,4 @@ function fitness(individual) {
   const bestIndividual = geneticAlgorithm(populationSize, individualLength, mutationRate, generations);
   console.log(bestIndividual);
   console.log("PROCESO TERMINADO")
-  
+  */
