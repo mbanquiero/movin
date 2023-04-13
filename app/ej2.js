@@ -5,20 +5,22 @@ function initMap2()
     cant_semaforos = 0;         // ojo que cant_semaforos <= semaforos.lenght! 
     semaforos = [];
 
+    let x0 = 10;
+    let x1 = screen_dx-10;
+    let y0 = 10;
+    let y1 = screen_dy-10;
+    
     // carretera horizontal
-    for(let j=100;j<500;j+=10)
+    for(let j=y0+50;j<y1-50;j+=10)
     {
-        for(let i=x0;i<x1;++i)
-            setRPixel(i,j,map_buffer,2);
-        
+        line(x0,j,x1,j,map_buffer);
         setGPixel(x0,j,map_buffer,TRAFICO_H);
     }
     
     // carreteras vertical
-    for(let j=100;j<500;j+=10)
+    for(let j=x0+50;j<x1-50;j+=10)
     {
-        for(let i=y0;i<y1;++i)
-            setRPixel(j,i,map_buffer,1);
+        line(j,y0,j,y1,map_buffer);
         setGPixel(j,y0,map_buffer,TRAFICO_V);
 
         // semaforo del cruce 
@@ -31,7 +33,6 @@ function initMap2()
                 ++cant_semaforos;
             }
         }
-
     }
 
 	// establezo la configuracion de los semaforos

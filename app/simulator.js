@@ -1,7 +1,7 @@
 
 // globales
-var screen_dx = 512.0;
-var screen_dy = 512.0;
+var screen_dx = 2048;
+var screen_dy = 2048;
 var step = 0;
 var vel_sim = 1;
 var map_buffer = null;
@@ -27,8 +27,8 @@ var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAni
                    depth: true ,
 				   alpha: false  
 				   });            
-		    gl.viewportWidth = canvas.width;
-            gl.viewportHeight = canvas.height;
+		    gl.viewportWidth = screen_dx;
+            gl.viewportHeight = screen_dy;
 			gl.getExtension("EXT_color_buffer_float");
   	
         } catch (e) {
@@ -324,6 +324,8 @@ function initReduceTexture()
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'uSampler'), 0);
 			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'uSamplerMap'), 1);
+			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'screen_dx'), screen_dx);
+			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'screen_dy'), screen_dy);
 			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'step'), step++);
 			gl.bindBuffer(gl.ARRAY_BUFFER, fullscreenQuad);
 			gl.vertexAttribPointer(postProcessProgram.vertexPositionAttribute, fullscreenQuad.itemSize, gl.FLOAT, false, 0, 0);
@@ -342,6 +344,9 @@ function initReduceTexture()
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler'), 0);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSamplerMap'), 1);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler2'), 2);
+			gl.uniform1i(gl.getUniformLocation(reShader, 'screen_dx'), screen_dx);
+			gl.uniform1i(gl.getUniformLocation(reShader, 'screen_dy'), screen_dy);
+
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 	
 		}
@@ -411,6 +416,8 @@ function initReduceTexture()
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'uSampler'), 0);
 			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'uSamplerMap'), 1);
+			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'screen_dx'), screen_dx);
+			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'screen_dy'), screen_dy);
 			gl.uniform1i(gl.getUniformLocation(postProcessProgram, 'step'), step++);
 			gl.bindBuffer(gl.ARRAY_BUFFER, fullscreenQuad);
 			gl.vertexAttribPointer(postProcessProgram.vertexPositionAttribute, fullscreenQuad.itemSize, gl.FLOAT, false, 0, 0);
@@ -429,6 +436,8 @@ function initReduceTexture()
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler'), 0);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSamplerMap'), 1);
 			gl.uniform1i(gl.getUniformLocation(reShader, 'uSampler2'), 2);
+			gl.uniform1i(gl.getUniformLocation(reShader, 'screen_dx'), screen_dx);
+			gl.uniform1i(gl.getUniformLocation(reShader, 'screen_dy'), screen_dy);
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 	
 		}
@@ -476,7 +485,21 @@ function initReduceTexture()
 		
     }
 
+	function drawSimulation()
+	{
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, accTexture);
+		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.useProgram(copyShader);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'screen_dx'), screen_dx);
+		gl.uniform1i(gl.getUniformLocation(copyShader, 'screen_dy'), screen_dy);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 
+	}
 
 	
 	// textura para guardar el map
@@ -549,7 +572,8 @@ function initReduceTexture()
 	 
 		while(true) 
 		{
-		   setRPixel(x0, y0 , data , dir);
+			if(x0>=0 && x0<screen_dx && y0>=0 && y0<screen_dy)
+		   	setRPixel(x0, y0 , data , dir);
 	 
 		   if ((x0 === x1) && (y0 === y1)) break;
 		   var e2 = 2*err;

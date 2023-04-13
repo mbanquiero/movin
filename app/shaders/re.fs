@@ -8,6 +8,10 @@ precision mediump float;
 uniform sampler2D uSampler;	
 uniform sampler2D uSamplerMap;	
 uniform sampler2D uSampler2;	
+
+uniform int screen_dx;
+uniform int screen_dy;
+
 in vec2 vTextureCoord;
 layout(location = 0) out vec4 rta;
 layout(location = 1) out vec4 rta2;
@@ -20,8 +24,8 @@ const int DERECHA = 2;
 void main(void) {
 
 
-    int px = int(vTextureCoord.x*512.0);
-    int py = int(vTextureCoord.y*512.0);
+    int px = int(vTextureCoord.x*float(screen_dx));
+    int py = int(vTextureCoord.y*float(screen_dy));
     vec4 tx = texelFetch(uSamplerMap,ivec2(px,py),0);
     vec4 tx2 = texelFetch(uSampler2,ivec2(px,py),0);
 

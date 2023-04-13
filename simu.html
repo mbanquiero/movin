@@ -10,6 +10,7 @@
 <script type="text/javascript" src="app/ej4.js"></script>
 <script type="text/javascript" src="app/ej5.js"></script>
 <script type="text/javascript" src="app/ej6.js"></script>
+<script type="text/javascript" src="app/ej7.js"></script>
 <script type="text/javascript" src="app/genetico.js"></script>
 
 
@@ -22,7 +23,7 @@
 	var y1 = 500;
 
 	
-	function initMap()
+	async function initMap()
 	{
 		semaforos = [];
 		switch(ejemplo)
@@ -39,11 +40,14 @@
 			case 4:
 				initMap4();
 				break;
-				case 5:
+			case 5:
 				initMap5();
 				break;
 			case 6:
 				initMap6();
+				break;
+			case 7:
+				await initMap7();
 				break;
 		}
 	}
@@ -104,15 +108,7 @@
 		// y asi obtener el mapa de co2 para mostrar por pantalla
 		MIN_CO2 = Fitness();
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dy);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(copyShader);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		drawSimulation();
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
@@ -169,15 +165,8 @@
 		// y asi obtener el mapa de co2 para mostrar por pantalla
 		MIN_CO2 = Fitness();
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dy);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(copyShader);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		drawSimulation();
+
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
@@ -220,15 +209,8 @@
 			MIN_CO2 = co2;
 		}
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dy);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(copyShader);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		drawSimulation();
+
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, 400, 50);		
 		ctx.fillStyle = "yellow";
@@ -266,15 +248,7 @@
 		// y asi obtener el mapa de co2 para mostrar por pantalla
 		let CO2 = Fitness();
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dy);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(copyShader);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		drawSimulation();
 
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, 400, 50);		
@@ -292,16 +266,7 @@
 		let co2 = simulate(1);
 
         // muestro en pantalla
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dy);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(copyShader);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
-
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
+		drawSimulation();
 		
 		// stats
 		ctx.fillStyle = "black";
@@ -402,6 +367,7 @@
 		<button onclick="set_ejemplo(4);">Ej 4</button>
 		<button onclick="set_ejemplo(5);">Ej 5</button>
 		<button onclick="set_ejemplo(6);">Ej 6</button>
+		<button onclick="set_ejemplo(7);">Ej 7</button>
 
 		Flujo de Trafico Calle horizontal:
 		<input type="range" min="1" max="250" value="150" id="calle_h">
@@ -429,8 +395,8 @@
 	</div>
 		
 	<div id="canvas_container" > 
-		<canvas id="canvas"  width="512" height="512" tabindex="1"></canvas>
-		<canvas id="text_canvas" width="512" height="512"></canvas>
+		<canvas id="canvas"  width="2048" height="2048" tabindex="1"></canvas>
+		<canvas id="text_canvas" width="2048" height="2048"></canvas>
 	</div>
 </body>
 </html>

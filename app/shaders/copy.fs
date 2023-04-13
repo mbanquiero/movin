@@ -2,12 +2,15 @@
 precision mediump float;
 uniform sampler2D uSampler;	
 uniform sampler2D uSamplerMap;	
+uniform int screen_dx;
+uniform int screen_dy;
 in vec2 vTextureCoord;
+
 layout(location = 0) out vec4 FragColor;
 
 void main(void) {
-    int px = int(vTextureCoord.x*512.0);
-    int py = int(vTextureCoord.y*512.0);
+    int px = int(vTextureCoord.x*float(screen_dx));
+    int py = int(vTextureCoord.y*float(screen_dy));
     vec3 tx = texelFetch(uSampler,ivec2(px,py),0).rgb;
     vec3 tx2 = texelFetch(uSamplerMap,ivec2(px,py),0).rgb;
     vec3 rgb = vec3(0.0);
@@ -23,33 +26,8 @@ void main(void) {
         rgb = vec3(1.0 , 1.0, 0.0);			// auto
     else
     if(tx2.r>0.0)
-    {
         // carretera
-        /* 
-        opcion para dibujar con distintos colores
-        int ruta_dir =  int(tx2.r*255.0+0.5);
-        switch(ruta_dir)
-        {
-            case 1:
-                rgb = vec3(0.5,0.1,0.1);		
-                break;
-            case 2:
-                rgb = vec3(0.1,0.5,0.1);		
-                break;
-            case 4:
-                rgb = vec3(0.1,0.1,0.5);		
-                break;
-            case 8:
-                rgb = vec3(0.1,0.5,0.5);		
-                break;
-            default:
-                rgb = vec3(1.0,0.0,1.0);		
-                break;
-        }
-        */
         rgb = vec3(0.3);		
-
-    }
 	else
     {
         // co2 de los vecinos

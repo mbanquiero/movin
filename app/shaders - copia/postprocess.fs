@@ -11,6 +11,8 @@ uniform sampler2D uSampler;
 uniform sampler2D uSamplerMap;	
 
 uniform int step;
+uniform int screen_dx;
+uniform int screen_dy;
 in vec2 vTextureCoord;
 layout(location = 0) out vec4 rta;
 layout(location = 1) out vec4 rta2;
@@ -20,6 +22,8 @@ const int ARRIBA = 1;
 const int ABAJO = 8;
 const int IZQUIERDA = 4;
 const int DERECHA = 2;
+
+
 
 int tea16( int val0, int val1)
 {
@@ -64,9 +68,9 @@ void main(void) {
     if(step==0)
         return;
 
-    int px = int(vTextureCoord.x*512.0);
-    int py = int(vTextureCoord.y*512.0);
-    int seed = tea16(px*512+py, step);
+    int px = int(vTextureCoord.x*float(screen_dx));
+    int py = int(vTextureCoord.y*float(screen_dy));
+    int seed = tea16(px*screen_dx+py, step);
     vec4 tx = texelFetch(uSamplerMap,ivec2(px,py),0);
 
     rta = texelFetch(uSampler,ivec2(px,py),0);
