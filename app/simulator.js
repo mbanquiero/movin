@@ -295,7 +295,7 @@ function initReduceTexture()
 	var MIN_CO2 = -1;
 
 	
-	function Fitness() 
+	function calcular_co2() 
 	{
 			
 		// establezo la configuracion de los semaforos

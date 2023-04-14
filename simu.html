@@ -89,8 +89,8 @@
 			// establezco la configuracion de los semaforos
 			random_optimize();
 
-			// evaluo la funcion de fitness
-			var co2 = Fitness();
+			// evaluo la funcion de calcular_co2
+			var co2 = calcular_co2();
 			// y me quedo con la mejor hasta ahora
 			if(co2<MIN_CO2 || MIN_CO2==-1)
 			{
@@ -104,9 +104,9 @@
 		RED_TIME = MEJOR_RED_TIME.slice();
 		OFFSET = MEJOR_OFFSET.slice();
 		restart();
-		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
+		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
 		// y asi obtener el mapa de co2 para mostrar por pantalla
-		MIN_CO2 = Fitness();
+		MIN_CO2 = calcular_co2();
 
 		drawSimulation();
 		ctx.fillStyle = "black";
@@ -161,9 +161,9 @@
 		RED_TIME = MEJOR_RED_TIME.slice();
 		OFFSET = MEJOR_OFFSET.slice();
 		restart();
-		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
+		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
 		// y asi obtener el mapa de co2 para mostrar por pantalla
-		MIN_CO2 = Fitness();
+		MIN_CO2 = calcular_co2();
 
 		drawSimulation();
 
@@ -199,8 +199,8 @@
 		// establezco la configuracion de los semaforos
 		random_optimize();
 
-		// evaluo la funcion de fitness
-		var co2 = Fitness();
+		// evaluo la funcion de calcular_co2
+		var co2 = calcular_co2();
 		// y me quedo con la mejor hasta ahora
 		if(co2<MIN_CO2 || MIN_CO2==-1)
 		{
@@ -244,9 +244,9 @@
 		tomar_valores();
 
 		restart();
-		// hack: llamo a fitness para que vuelva a simular con la mejor opcion 
+		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
 		// y asi obtener el mapa de co2 para mostrar por pantalla
-		let CO2 = Fitness();
+		let CO2 = calcular_co2();
 
 		drawSimulation();
 
