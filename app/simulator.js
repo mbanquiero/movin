@@ -2,11 +2,37 @@
 // globales
 var screen_dx = 2048;
 var screen_dy = 2048;
+var offset_x = 0;
+var offset_y = 0;
+
+// Eventos del mouse
+var EV_NADA				= 0;
+var EV_PAN_REALTIME		= 1;
+var eventoInterno = EV_NADA;
+var mouse_x = 0;
+var mouse_y = 0;
+
+var RENDER_ZOOM		= 0;
+var RENDER_COPY		= 1;
+var RENDER_UNZOOM	= 2;
+
+var tipo_render = RENDER_ZOOM;
+
+
 var step = 0;
 var vel_sim = 1;
 var map_buffer = null;
 var semaforos = [];
 var cant_semaforos = 0;
+
+var ARRIBA            = 2;
+var ABAJO             = 64;
+var IZQUIERDA         = 8;
+var DERECHA           = 16;
+var ARRIBA_DERECHA    = 4;
+var ARRIBA_IZQUIERDA  = 1;
+var ABAJO_DERECHA     = 128;
+var ABAJO_IZQUIERDA   = 32;
 
 
 // chrome render loop hack
@@ -101,7 +127,8 @@ var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAni
     }
 
 	// inicializo los shaders
-    var postProcessProgram , reShader, copyShader , reduceShader , initCO2Shader;
+    var postProcessProgram , reShader, copyShader , reduceShader , initCO2Shader , 
+		zoomShader, unzoomShader;
 
 	
     function initShaders() {
@@ -161,8 +188,29 @@ var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAni
 		if (!gl.getProgramParameter(copyShader, gl.LINK_STATUS)) {
 			alert("Could not initialise shaders");
 		}
+
+		// zoom shader
+		fragmentShader = getShader(gl, "zoom.fs");
+		zoomShader = gl.createProgram();
+		gl.attachShader(zoomShader, vertexShader);
+		gl.attachShader(zoomShader, fragmentShader);
+		gl.linkProgram(zoomShader);
+		if (!gl.getProgramParameter(zoomShader, gl.LINK_STATUS)) {
+			alert("Could not initialise shaders");
+		}
 		
-    }
+
+		// unzoom shader
+		fragmentShader = getShader(gl, "unzoom.fs");
+		unzoomShader = gl.createProgram();
+		gl.attachShader(unzoomShader, vertexShader);
+		gl.attachShader(unzoomShader, fragmentShader);
+		gl.linkProgram(unzoomShader);
+		if (!gl.getProgramParameter(unzoomShader, gl.LINK_STATUS)) {
+			alert("Could not initialise shaders");
+		}
+
+	}
 
 	
     function initFullScreenQuad() {
@@ -247,7 +295,8 @@ function initRenderTexture()
 
 }
 
-var reduceTexture = [];
+var reduceTexture = [];			// textura para el co2 
+var reduceTexture2 = [];		// textura para la cantidad de autos
 var reduceBuffer = [];
 
 function initReduceTexture() 
@@ -267,6 +316,8 @@ function initReduceTexture()
 		// creo el framebuffer
 		reduceBuffer[i] = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[i]);
+
+		// textura para el co2
 		reduceTexture[i] = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D, reduceTexture[i]);
 		gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,W, W, border,format, type, data);
@@ -274,6 +325,16 @@ function initReduceTexture()
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, reduceTexture[i], level);	
+
+		// textura para la cantidad de autos
+		reduceTexture2[i] = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, reduceTexture2[i]);
+		gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,W, W, border,format, type, data);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, reduceTexture2[i], level);	
+
 		i++;
 		W/=2;
 	}	
@@ -351,6 +412,13 @@ function initReduceTexture()
 	
 		}
 
+		return parallel_reduce();
+		
+    }
+
+	
+	function parallel_reduce()
+	{
 		// Computo con parallel reduce
 		// inicializo el reduce con el canalb
 
@@ -358,7 +426,7 @@ function initReduceTexture()
 		let W = screen_dx;
 		gl.useProgram(initCO2Shader);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[0]);
-		gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.NONE]);
+		gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, accTexture);
 		gl.viewport(0, 0, screen_dx, screen_dx);
@@ -373,28 +441,39 @@ function initReduceTexture()
 		{
 			W/=2;
 			gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[i]);
+			gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
 			gl.activeTexture(gl.TEXTURE0);
 			gl.bindTexture(gl.TEXTURE_2D, reduceTexture[i-1]);
+			gl.activeTexture(gl.TEXTURE1);
+			gl.bindTexture(gl.TEXTURE_2D, reduceTexture2[i-1]);
 			gl.viewport(0, 0, W, W);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			gl.uniform1i(gl.getUniformLocation(reduceShader, 'uSampler'), 0);
+			gl.uniform1i(gl.getUniformLocation(reduceShader, 'uSamplerAutos'), 1);
 			gl.uniform1i(gl.getUniformLocation(reduceShader, 'W'), W);
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 
+			
 		}
 
 		var p = new Uint8Array(4);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[reduceBuffer.length-1]);
+		gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+
+		gl.readBuffer(gl.COLOR_ATTACHMENT1);
+		gl.readPixels(0, 0, 1,1, gl.RGBA, gl.UNSIGNED_BYTE, p);
+		let cant_autos = p[0]+p[1]*256+p[2]*256*256+p[3]*256*256*256;
+
+		gl.readBuffer(gl.COLOR_ATTACHMENT0);
 		gl.readPixels(0, 0, 1,1, gl.RGBA, gl.UNSIGNED_BYTE, p);
 		let co2 = p[0]+p[1]*256+p[2]*256*256+p[3]*256*256*256;
 
 
-		// devuelvo el valor de emision
-		return co2;
-		
-		
-    }
+		// devuelve la cantidad de co2 emitido y la cantidad de autos
+		return {co2:co2 , cant_autos:cant_autos};		
 
-	
+	}
+
 	// ejecuta la simulacion
 	function simulate(K) 
 	{
@@ -442,47 +521,7 @@ function initReduceTexture()
 	
 		}
 
-		// Computo con parallel reduce
-		// inicializo el reduce con el canalb
-
-		// inicializo el reduce con el canalb
-		let W = screen_dx;
-		gl.useProgram(initCO2Shader);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[0]);
-		gl.drawBuffers( [gl.COLOR_ATTACHMENT0, gl.NONE]);
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dx);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.uniform1i(gl.getUniformLocation(initCO2Shader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(initCO2Shader, 'W'), W);
-
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);		
-		
-		gl.useProgram(reduceShader);
-		for(let i=1;i<reduceBuffer.length;++i)
-		{
-			W/=2;
-			gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[i]);
-			gl.activeTexture(gl.TEXTURE0);
-			gl.bindTexture(gl.TEXTURE_2D, reduceTexture[i-1]);
-			gl.viewport(0, 0, W, W);
-			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-			gl.uniform1i(gl.getUniformLocation(reduceShader, 'uSampler'), 0);
-			gl.uniform1i(gl.getUniformLocation(reduceShader, 'W'), W);
-			gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
-		}
-
-
-		gl.bindFramebuffer(gl.FRAMEBUFFER, reduceBuffer[reduceBuffer.length-1]);
-		var p = new Uint8Array(4);
-		gl.readPixels(0, 0, 1,1, gl.RGBA, gl.UNSIGNED_BYTE, p);
-		let co2 = p[0]+p[1]*256+p[2]*256*256+p[3]*256*256*256;
-
-
-
-		return co2;		// devuelve la cantidad de co2 emitido
-		
+		return parallel_reduce();		
     }
 
 	function drawSimulation()
@@ -490,13 +529,36 @@ function initReduceTexture()
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, accTexture);
-		gl.viewport(0, 0, screen_dx, screen_dy);
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, map_texture);
+
+		gl.viewport(0, 0, 1200, 600);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(copyShader);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSampler'), 0);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'uSamplerMap'), 1);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'screen_dx'), screen_dx);
-		gl.uniform1i(gl.getUniformLocation(copyShader, 'screen_dy'), screen_dy);
+		
+		var program;
+		
+		switch(tipo_render)
+		{
+			case RENDER_COPY:
+			default:
+				program = copyShader;
+				break;
+			case RENDER_ZOOM:
+				program = zoomShader;
+				break;
+			case RENDER_UNZOOM:
+				program = unzoomShader;
+				break;
+		}
+
+		gl.useProgram(program);
+		gl.uniform1i(gl.getUniformLocation(program, 'uSampler'), 0);
+		gl.uniform1i(gl.getUniformLocation(program, 'uSamplerMap'), 1);
+		gl.uniform1i(gl.getUniformLocation(program, 'screen_dx'), screen_dx);
+		gl.uniform1i(gl.getUniformLocation(program, 'screen_dy'), screen_dy);
+		gl.uniform1i(gl.getUniformLocation(program, 'offset_x'), offset_x);
+		gl.uniform1i(gl.getUniformLocation(program, 'offset_y'), offset_y);
+
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, fullscreenQuad.numItems);
 
 	}
@@ -520,7 +582,7 @@ function initReduceTexture()
 	function setRPixel(x,y,data , r)
 	{
 		var pos = (y*screen_dx + x)*4;
-		data[pos] = r;
+		data[pos] |= r;
 	}
 
 	function setGPixel(x,y,data , g)
@@ -568,17 +630,44 @@ function initReduceTexture()
 		var sy = (y0 < y1) ? 1 : -1;
 		var err = dx - dy;
 
-		var dir = dx>dy ? (sx==1?2:4) : (sy==1?1:8);
-	 
 		while(true) 
 		{
-			if(x0>=0 && x0<screen_dx && y0>=0 && y0<screen_dy)
-		   	setRPixel(x0, y0 , data , dir);
+			var px = x0;
+			var py = y0;
+			var mov_x = false;
+			var mov_y = false;
 	 
 		   if ((x0 === x1) && (y0 === y1)) break;
 		   var e2 = 2*err;
-		   if (e2 > -dy) { err -= dy; x0  += sx; }
-		   if (e2 < dx) { err += dx; y0  += sy; }
+		   if (e2 > -dy) 
+		   { 
+				err -= dy; 
+				x0  += sx;
+				mov_x = true;
+			}
+		   	if (e2 < dx) 
+			{ 
+				err += dx; 
+				y0  += sy;
+				mov_y = true;
+			}
+
+		   if(px>=0 && px<screen_dx && py>=0 && py<screen_dy)
+		   {
+				var dir = 0;
+				if(!mov_x)
+					dir = sy==1?ARRIBA : ABAJO;
+				else
+				if(!mov_y)
+					dir = sx==1?DERECHA : IZQUIERDA;
+				else
+				if(sx==1)
+					dir = sy==1?ARRIBA_DERECHA : ABAJO_DERECHA;
+				else
+					dir = sy==1?ARRIBA_IZQUIERDA : ABAJO_IZQUIERDA;
+				setRPixel(px, py , data , dir);
+		   }
+
 		}
 	 }
 
@@ -604,22 +693,6 @@ function initReduceTexture()
 	var textCanvas;
 	var ctx = null;
 
-	function doKeyDown(e) 
-	{
-		switch(e.keyCode)
-		{
-			case 34:
-				vel_sim *=2;
-				break;
-			case 33:
-				vel_sim /=2;
-				if(vel_sim<1)
-					vel_sim = 1;
-				break;
-		}
-	}
-
-
     async function webGLStart() {
 
 		// Primero cargo todo los shaders en el html 
@@ -629,11 +702,17 @@ function initReduceTexture()
 		await loadShader("reduce.fs");
 		await loadShader("initCO2.fs");
 		await loadShader("copy.fs");
+		await loadShader("zoom.fs");
+		await loadShader("unzoom.fs");
 
         textCanvas = document.getElementById("text_canvas");
 		ctx = textCanvas.getContext("2d");
         var canvas = document.getElementById("canvas");
-		document.addEventListener( "keydown", doKeyDown, true);
+		canvas.addEventListener("mousemove", onMouseMove, true);
+		canvas.addEventListener("mousedown", onMouseDown, true);
+		canvas.addEventListener("mouseup", onMouseUp, true);
+		canvas.addEventListener("mousewheel", onMouseWheel, true);
+
 		
 
 		initGL(canvas);
@@ -667,5 +746,47 @@ function initReduceTexture()
 			setSemaforo(s.x,s.y,map_buffer,red_time,offset);
 			});
 	}
+
+	
+
+	// --------------------------------------------
+	// ---------------------- EVENTOS DEL MOUSE ----------------------
+function onMouseMove() 
+{
+	var xPos = window.event.offsetX;
+	var yPos = window.event.offsetY;
+
+	var dr = tipo_render==RENDER_ZOOM ? 8 : 1;
+	switch (eventoInterno) {
+
+	    case EV_PAN_REALTIME:
+			offset_x -= (xPos - mouse_x)/dr;
+			offset_y += (yPos - mouse_y)/dr;
+	        break;
+	}
+
+    // actualizo la posicion del mouse
+	mouse_x = xPos;
+	mouse_y = yPos;
+	drawSimulation();
+}
+
+function onMouseDown(e) {
+	mouse_x = window.event.offsetX;
+	mouse_y = window.event.offsetY;
+	eventoInterno = EV_PAN_REALTIME;
+}
+
+
+function onMouseUp(e) {
+    // termino event de pan realtime
+    eventoInterno = EV_NADA;
+}
+
+
+function onMouseWheel(e) {
+
+    var delta = e.wheelDelta;
+}
 
 	

@@ -16,10 +16,19 @@ in vec2 vTextureCoord;
 layout(location = 0) out vec4 rta;
 layout(location = 1) out vec4 rta2;
 
-const int ARRIBA = 1;
-const int ABAJO = 8;
-const int IZQUIERDA = 4;
-const int DERECHA = 2;
+// bits direcciones
+// 0 1 2         1  2  4
+// 3 X 4         8  X  16
+// 5 6 7         32 64 128
+
+const int ARRIBA            = 2;
+const int ABAJO             = 64;
+const int IZQUIERDA         = 8;
+const int DERECHA           = 16;
+const int ARRIBA_DERECHA    = 4;
+const int ARRIBA_IZQUIERDA  = 1;
+const int ABAJO_DERECHA     = 128;
+const int ABAJO_IZQUIERDA   = 32;
 
 void main(void) {
 
@@ -96,27 +105,13 @@ void main(void) {
         index_value[4*t+3] = int(tx2.a*255.0 + 0.5)-1;
     }
 
-    int ruta_dir =  int(tx.r*255.0+0.5);
-
     // ahora verifico si le ingresan autos
     for(int j=0;j<8;++j)
     for(int i=0;i<4;++i)
     {
         int ndx = index_value[j*4+i];
         if(ndx==index[j])
-        {
-            if(true) //j<3)
-            {
-                // mantiene la direccion
-                curr_auto |= MASK_DIR[i];
-            }
-            else
-            {
-                // el auto gira
-                curr_auto &= ~MASK_DIR[i];
-                curr_auto |= ruta_dir;
-            }
-        }
+            curr_auto |= MASK_DIR[i];
     }
     rta.g = float(curr_auto) / 255.0;
 }

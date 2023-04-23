@@ -56,3 +56,29 @@ async function initMap7()
 	setSemaforosConfig();
 	map_texture = textureFromPixelArray(gl, map_buffer, screen_dx, screen_dy);
 }
+
+
+async function initMap8()
+{
+	await loadMap("ej8.dat");
+	await loadSemaforos("ej8.sem");
+	setSemaforosConfig();
+	map_texture = textureFromPixelArray(gl, map_buffer, screen_dx, screen_dy);
+}
+
+async function initMap9()
+{
+	await loadMap("ej9.dat");
+	await loadSemaforos("ej9.sem");
+	setSemaforosConfig();
+	map_texture = textureFromPixelArray(gl, map_buffer, screen_dx, screen_dy);
+}
+
+async function initMap10()
+{
+	await loadMap("ej10.dat");
+	await loadSemaforos("ej10.sem");
+	setSemaforosConfig();
+	map_texture = textureFromPixelArray(gl, map_buffer, screen_dx, screen_dy);
+}
+

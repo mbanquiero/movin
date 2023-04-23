@@ -16,11 +16,20 @@ in vec2 vTextureCoord;
 layout(location = 0) out vec4 rta;
 layout(location = 1) out vec4 rta2;
 
+// bits direcciones
+// 0 1 2         1  2  4
+// 3 X 4         8  X  16
+// 5 6 7         32 64 128
 
-const int ARRIBA = 1;
-const int ABAJO = 8;
-const int IZQUIERDA = 4;
-const int DERECHA = 2;
+const int ARRIBA            = 2;
+const int ABAJO             = 64;
+const int IZQUIERDA         = 8;
+const int DERECHA           = 16;
+const int ARRIBA_DERECHA    = 4;
+const int ARRIBA_IZQUIERDA  = 1;
+const int ABAJO_DERECHA     = 128;
+const int ABAJO_IZQUIERDA   = 32;
+
 
 int tea16( int val0, int val1)
 {
@@ -68,7 +77,15 @@ void main(void) {
     int px = int(vTextureCoord.x*float(screen_dx));
     int py = int(vTextureCoord.y*float(screen_dy));
     int seed = tea16(py*screen_dx+px, step);
+    
+    // uSamplerMap representa el mapa pp dicho
     vec4 tx = texelFetch(uSamplerMap,ivec2(px,py),0);
+    // en el canal R tenemos el dato de las conexiones, que indican hacia adonde se puede ir desde 
+    // el punto en cuestion X, codificado en bits 
+    // 0 1 2
+    // 3 X 4
+    // 5 6 7 
+    int ruta_dir = int(tx.r*255.0+0.5);
 
     rta = texelFetch(uSampler,ivec2(px,py),0);
 
@@ -79,7 +96,29 @@ void main(void) {
         // o borro el que habia. 
         // Sea como sea luego de este punto la densidad de trafico tiene que ser la real
         if(rnd(seed)<tx.g)
-            rta.g = tx.r;
+        {
+            // se supone que no es un cruce
+            int auto_dir;
+            switch(ruta_dir)
+            {
+                case ARRIBA_DERECHA:
+                case ARRIBA:
+                    auto_dir = ARRIBA;
+                    break;
+                case ABAJO_IZQUIERDA:
+                case ABAJO:
+                    auto_dir = ABAJO;
+                    break;
+                case ARRIBA_IZQUIERDA:
+                case IZQUIERDA:
+                    auto_dir = IZQUIERDA;
+                    break;
+                default:
+                    auto_dir = DERECHA;
+                    break;
+            }
+            rta.g = float(auto_dir) / 255.0;
+        }
         else
             rta.g = 0.0;
     }
@@ -88,16 +127,13 @@ void main(void) {
     if(tx.b>0.0)
     {
         // hay semaforo
-        int r = int(tx.r*255.0+0.5);
-        bool arr = (r&ARRIBA)!=0;
-        bool aba = (r&ABAJO)!=0;
-
+        bool arr = (ruta_dir&ARRIBA)!=0;
+        bool aba = (ruta_dir&ABAJO)!=0;
         int tr = int(tx.b*255.0+0.5)-1;
         int t0 = int(tx.a*255.0+0.5);
         bool semaforo_rojo = (step*1+t0)%256<tr;
         if((arr || aba))
             semaforo_rojo = !semaforo_rojo;
-        
         rta.r = semaforo_rojo ? 1.0 : 0.0;
         if(semaforo_rojo)
             return;
@@ -105,33 +141,35 @@ void main(void) {
 
 
     // simulo el mov. de los autos
-    // lugar a donde me quiero mover
     int g = int(rta.g*255.0+0.5);
     if(g==0)
         return;
 
     // determino todos los lugares donde hay ruta libre alrededor de donde estoy
+    const int pot2[8] = int[](1,2,4,8,16,32,64,128);
     const ivec2 K[8] = ivec2[](
                 ivec2(-1,1),ivec2(0,1),ivec2(1,1),
                 ivec2(-1,0 ),            ivec2(1,0),
                 ivec2(-1,-1),ivec2(0,-1),  ivec2(1,-1));
-    
+
     bool ruta[8] , libre[8];
     for(int t = 0;t<8;++t)
     {
         ivec2 pos = ivec2(px,py) + K[t];
-        ruta[t] =       texelFetch(uSamplerMap,pos,0).r>0.0;
+        ruta[t] = (ruta_dir & pot2[t])!=0;
         libre[t] =    texelFetch(uSampler,pos,0).g==0.0;
     }
 
     // 0 1 2
     // 3 X 4
     // 5 6 7
+    // ruta[t] es true si hay carretera en t
+    // libre[t] es true si esta libre (no hay otro auto en ese lugar)
 
-    // de todos esos lugares, dependiendo de la direccion del auto, algunos tienen mas prioridad
+    // De todos esos lugares, dependiendo de la direccion del auto, algunos tienen mas prioridad
     // que otros, y otros no se pueden acceder
 
-    const int p_ndx[32] = int[](
+    int p_ndx[32] = int[](
                         4,2,7,1,6,0,5,3,              // derecho
                         3,0,5,1,6,2,7,4,              // izquierdo
                         1,0,2,3,4,5,7,6,              // arriba
@@ -140,12 +178,22 @@ void main(void) {
 
     const int MASK_DIR[4] = int[](DERECHA,IZQUIERDA,ARRIBA,ABAJO);
 
+    
+
     int mov[4] = int[](0,0,0,0);
     for(int i=0;i<4;++i)
     if((g&MASK_DIR[i])!=0)
     {
         bool fl = false;
         bool hay_ruta = false;
+
+        if(rnd(seed)<0.1)
+        {
+            int aux = p_ndx[i*8];
+            p_ndx[i*8] = p_ndx[i*8+1];
+            p_ndx[i*8+1] = aux;
+        }
+
         for(int t = 0;t<8  && !fl;++t)
         {
             int index = p_ndx[i*8+t];

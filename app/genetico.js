@@ -15,7 +15,7 @@ function fitness(individual) {
 		}
 
     // llamo al simulador para evalua el total de co2 de esta configuracion de semaforos    
-    return calcular_co2();
+    return calcular_co2().co2;
 
   }
   

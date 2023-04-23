@@ -4,13 +4,32 @@ uniform sampler2D uSampler;
 uniform sampler2D uSamplerMap;	
 uniform int screen_dx;
 uniform int screen_dy;
+uniform int offset_x;
+uniform int offset_y;
+
+// este shader se encarga de dibujar 
+
 in vec2 vTextureCoord;
 
 layout(location = 0) out vec4 FragColor;
 
+
+const int ARRIBA            = 2;
+const int ABAJO             = 64;
+const int IZQUIERDA         = 8;
+const int DERECHA           = 16;
+const int ARRIBA_DERECHA    = 4;
+const int ARRIBA_IZQUIERDA  = 1;
+const int ABAJO_DERECHA     = 128;
+const int ABAJO_IZQUIERDA   = 32;
+
+
 void main(void) {
-    int px = int(vTextureCoord.x*float(screen_dx));
-    int py = int(vTextureCoord.y*float(screen_dy));
+    
+    int fx = int(vTextureCoord.x*1200.0);
+    int fy = int(vTextureCoord.y*600.0);
+    int px = fx + screen_dx/2 - 600 + offset_x;
+    int py = fy + screen_dy/2 - 300 + offset_y;
     vec3 tx = texelFetch(uSampler,ivec2(px,py),0).rgb;
     vec3 tx2 = texelFetch(uSamplerMap,ivec2(px,py),0).rgb;
     vec3 rgb = vec3(0.0);
@@ -45,5 +64,6 @@ void main(void) {
 
     FragColor.rgb = rgb;
     FragColor.a = 1.0;
+
 }
 

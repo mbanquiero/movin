@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>Simulador de movilidad urbana</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+<link rel="stylesheet" href="styles/index.css">
+<script type="text/javascript" src="app/simulator.js"></script>
+<script type="text/javascript" src="app/ej1.js"></script>
+<script type="text/javascript" src="app/ej2.js"></script>
+<script type="text/javascript" src="app/ej3.js"></script>
+<script type="text/javascript" src="app/ej4.js"></script>
+<script type="text/javascript" src="app/ej5.js"></script>
+<script type="text/javascript" src="app/ej6.js"></script>
+<script type="text/javascript" src="app/ej7.js"></script>
+<script type="text/javascript" src="app/genetico.js"></script>
+
+<!--grafico de evolucion -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"></script>
+<script	src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js"></script>
+<script type="text/javascript" src="app/grafico.js"></script>
+
+
+<script type="text/javascript">
+
+	var ejemplo = 1;
+	var x0 = 10;
+	var x1 = 500;
+	var y0 = 10;
+	var y1 = 500;
+
+	
+	async function initMap()
+	{
+		semaforos = [];
+		switch(ejemplo)
+		{
+			case 1:
+				initMap1();
+				break;
+			case 2:
+				initMap2();
+				break;
+			case 3:
+				initMap3();
+				break;
+			case 4:
+				initMap4();
+				break;
+			case 5:
+				initMap5();
+				break;
+			case 6:
+				initMap6();
+				break;
+			case 7:
+				await initMap7();
+				break;
+			case 8:
+				await initMap8();
+				break;
+			case 9:
+				await initMap9();
+				break;
+			case 10:
+				await initMap10();
+				break;
+				
+		}
+	}
+
+
+	function restart()
+	{
+		// vuelvo a generar el mapa
+		initMap();
+		// actualizo los datos de la textura
+		gl.bindTexture(gl.TEXTURE_2D, map_texture);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, screen_dx, screen_dy, 0, gl.RGBA, gl.UNSIGNED_BYTE, map_buffer);
+		step = 0;
+		MIN_CO2 = -1;
+	
+	}
+
+	// simula una optimizacion al alzar
+	function random_optimize()
+	{
+		for(let n=0;n<cant_semaforos;++n)
+		{
+			RED_TIME[n] = 1 + Math.random()*254 | 0;
+			OFFSET[n] = 1 + Math.random()*254 | 0;
+		}
+	}
+
+	// OPTIMIZACION 
+	function optimizar()
+	{
+		// hack para darle tiempo a dibujar en pantalla que esta optimizando...
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.fillStyle = "black";
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("OPTIMIZANDO....", 10,10);	
+		// espera una decima de segundo y llama a la funcion de optimizar
+		setTimeout(optimizarThread,100);
+	}
+
+	function optimizarThread()
+	{
+		// actualizo los valores de los controles: 
+		animating = false;
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+
+
+		for(let i=0;i<30;++i)
+		{
+			// establezco la configuracion de los semaforos
+			random_optimize();
+
+			// evaluo la funcion de calcular_co2
+			var co2 = calcular_co2().co2;
+			// y me quedo con la mejor hasta ahora
+			if(co2<MIN_CO2 || MIN_CO2==-1)
+			{
+				MEJOR_RED_TIME = RED_TIME.slice();
+				MEJOR_OFFSET = OFFSET.slice();
+				MIN_CO2 = co2;
+			}
+		}
+
+		// muestro en pantalla la mejor solucion 
+		RED_TIME = MEJOR_RED_TIME.slice();
+		OFFSET = MEJOR_OFFSET.slice();
+		restart();
+		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
+		// y asi obtener el mapa de co2 para mostrar por pantalla
+		MIN_CO2 = calcular_co2().co2;
+
+		drawSimulation();
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 20);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0]/255*100,3) + "%  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,10);	
+
+		
+	}
+
+	// OPTIMIZACION CON ALGORITMO GENETICO
+	function optimizarGA()
+	{
+		// hack para darle tiempo a dibujar en pantalla que esta optimizando...
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.fillStyle = "black";
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("OPTIMIZANDO....", 10,10);	
+		// espera una decima de segundo y llama a la funcion de optimizar
+		setTimeout(optimizarGAThread,100);
+	}
+
+	function optimizarGAThread()
+	{
+
+		// actualizo los valores de los controles: 
+		animating = false;
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+
+
+		// llamo al algoritmo genetico
+		const populationSize = 10;
+  		const individualLength = cant_semaforos*2;
+	  	const mutationRate = 0.01;
+  		const generations = 10;
+		const bestIndividual = geneticAlgorithm(populationSize, individualLength, mutationRate, generations);
+
+    	// seteo la configuracion de los semaforos desde la info del cromosoma del individuo
+		MEJOR_RED_TIME = [];
+		MEJOR_OFFSET = [];
+		for(let i = 0;i<cant_semaforos;++i)
+		{
+			MEJOR_RED_TIME[i] = bestIndividual[2*i];		// el primer byte representa el tiempo rojo
+			MEJOR_OFFSET[i] = bestIndividual[2*i+1];		// el segundo byte representa el offset de tiempo
+		}
+
+		// muestro en pantalla la mejor solucion 
+		RED_TIME = MEJOR_RED_TIME.slice();
+		OFFSET = MEJOR_OFFSET.slice();
+		restart();
+		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
+		// y asi obtener el mapa de co2 para mostrar por pantalla
+		MIN_CO2 = calcular_co2().co2;
+
+		drawSimulation();
+
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 20);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0]/255*100,3) + "%  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+
+		
+	}
+
+	function opt_rt()
+	{
+		animating = false;
+		optimizing=!optimizing;
+		init_opt_rt();
+	}
+
+
+	function init_opt_rt()
+	{
+		// actualizo los valores de los controles: 
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+		MIN_CO2 = -1;
+	}
+	
+	function optimizar_realtime()
+	{
+
+		// establezco la configuracion de los semaforos
+		random_optimize();
+
+		// evaluo la funcion de calcular_co2
+		var co2 = calcular_co2().co2;
+		// y me quedo con la mejor hasta ahora
+		if(co2<MIN_CO2 || MIN_CO2==-1)
+		{
+			MEJOR_RED_TIME = RED_TIME.slice();
+			MEJOR_OFFSET = OFFSET.slice();
+			MIN_CO2 = co2;
+		}
+
+		drawSimulation();
+
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 20);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0]/255*100,3)  + "%  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,10);	
+	}
+
+	function tomar_valores()
+	{
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		RED_TIME = [
+				parseInt(document.getElementById("time_red_0").value),
+				parseInt(document.getElementById("time_red_1").value),
+				parseInt(document.getElementById("time_red_2").value),
+				parseInt(document.getElementById("time_red_3").value)
+			];
+		OFFSET = [
+		parseInt(document.getElementById("offset_0").value),
+		parseInt(document.getElementById("offset_1").value),
+		parseInt(document.getElementById("offset_2").value),
+		parseInt(document.getElementById("offset_3").value)
+			];
+
+	}
+
+	// me dan un tiempo de semaforo especifico y simulo para ver que pasa:
+	function simular()
+	{
+		// actualizo los valores de los controles: 
+		tomar_valores();
+
+		restart();
+		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
+		// y asi obtener el mapa de co2 para mostrar por pantalla
+		let CO2 = calcular_co2().co2;
+
+		drawSimulation();
+
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 400, 20);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		ctx.fillText("RED TIME="+fn(RED_TIME[0]/255*100,3)  + "%  EMISION CO2="+fn(CO2,10), 10,25);	
+		
+	}
+
+
+	function render(elapsed_time) 
+	{
+			
+		// ejecuto la simulacion (x defecto 1 solo paso, se controla con vel_sim) 
+		let result = simulate();
+		let co2 = result.co2;
+		let cant_autos = result.cant_autos;
+
+        // muestro en pantalla
+		drawSimulation();
+		
+		// stats
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, 900, 15);		
+		ctx.fillStyle = "yellow";
+		ctx.font = "12px Courier New";
+		let text = "FPS =" + FPS.toFixed() + "   RED TIME="+fn(RED_TIME[0]/255*100,3)
+			+ "%  CO2="+fn(co2,10) + "  Autos="+fn(cant_autos,10);
+		if(vel_sim>1)
+			text += "  x" + vel_sim;
+        ctx.fillText(text, 10,10);	
+    }
+
+
+	var FPS = 0;
+	var frame_time = 0;
+	var frame_count = 0;
+	var lastTime = 0;
+	var animating = false;
+	var optimizing = false;			// optimizar en real time
+
+
+	function RenderLoop()
+	{
+		var timeNow = new Date().getTime();
+		if (lastTime != 0) {
+			var elapsed = timeNow - lastTime;
+			if(animating)
+				render(elapsed);
+			else
+			if(optimizing)
+				optimizar_realtime();
+			frame_count++;
+			frame_time += elapsed;
+			if(frame_time>=1000)
+			{
+				FPS = frame_count;
+				frame_time-= 1000;
+				frame_count = 0;
+			}
+		}
+		lastTime = timeNow;
+		requestAnimationFrame(RenderLoop);
+	 }
+	
+	 function animar()
+	 {
+		restart();
+		animating = !animating;
+		var el = document.getElementById("animar-btn");
+		el.setAttribute("class", animating ? "glyphicon glyphicon-pause" : "glyphicon glyphicon-play");
+	 }
+
+    async function main() 
+	{
+		await webGLStart();
+		initMap();
+		mostrarGrafico("ChartCo2");
+		mostrarGrafico("ChartAutos");
+
+
+		var slider_h = document.getElementById("calle_h");
+		slider_h.oninput = function() 
+		{
+  			TRAFICO_H = this.value;
+			restart();
+			if(optimizing)
+				init_opt_rt();
+			
+		}
+		var slider_v = document.getElementById("calle_v");
+		slider_v.oninput = function() 
+		{
+  			TRAFICO_V = this.value;
+			restart();
+	   		if(optimizing)
+				init_opt_rt();
+		}
+
+		var slider_vel_simu = document.getElementById("vel_simu");
+		slider_vel_simu.oninput = function() 
+		{
+  			vel_sim = this.value;
+		}
+
+
+
+        RenderLoop();
+		render(0);
+	}
+
+
+	function set_ejemplo(ej)
+	{
+		ejemplo = ej;
+		tomar_valores();
+
+		if(ejemplo>=7)
+			tipo_render=RENDER_UNZOOM;
+		else
+			tipo_render=RENDER_ZOOM;
+
+		offset_x = offset_y= 0;
+		restart();
+		for(let i=0;i<10;++i)
+			render(0);
+	}
+
+
+</script>
+
+</head>
+
+
+<body onload="main();">
+	
+	<div id="canvas_container"> 
+		<canvas id="canvas"  width="1200" height="600" tabindex="1"></canvas>
+		<canvas id="text_canvas" width="1200" height="600"></canvas>
+		<div style="max-width:400px; max-height:150px;">
+			<canvas id="ChartCo2" width="400" height="150" />
+		</div>
+		<div style="max-width:400px; max-height:150px;">
+			<canvas id="ChartAutos" width="400" height="150" />
+		</div>
+
+		<div style = "position:absolute; left:950px; top:5px;">
+			<div class="btn-group"">
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="offset_x = offset_y= 0 , drawSimulation();">
+						<span class="glyphicon glyphicon-screenshot"></span> 
+				</button>
+
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="tipo_render=RENDER_ZOOM , drawSimulation();">
+						<span class="glyphicon glyphicon-zoom-in"></span> 
+				</button>
+
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="tipo_render=RENDER_COPY , drawSimulation();">
+						<span class="glyphicon glyphicon-resize-full"></span> 
+				</button>
+				
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="tipo_render=RENDER_UNZOOM , drawSimulation();">
+						<span class="glyphicon glyphicon-zoom-out"></span> 
+				</button>
+			</div>
+
+			<div class="btn-group"">
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="animar();">
+						<span id = "animar-btn" class="glyphicon glyphicon-play"></span> 
+				</button>
+
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="simular();">
+						<span class="glyphicon glyphicon-fast-forward"></span> 
+				</button>
+
+				<button type="button" class="btn btn-primary btn-xs" 
+						onclick="set_ejemplo(ejemplo);">
+						<span class="glyphicon glyphicon-refresh"></span> 
+				</button>
+			</div>
+			<input type="range" min="1" max="32" value="1" id="vel_simu">
+
+	
+		</div>		
+
+	</div>
+
+<div style = "position:absolute; left:1220px; top:0px; background-color:rgb(224, 228, 228); padding: 0px;">
+	<div class="panel-group">
+	<div class="panel panel-primary">
+		<div class="panel-heading">Ejemplos</div>
+		<div class="panel-body">
+			<div class="btn-group-vertical">			
+			<button type="button" class="btn" onclick="set_ejemplo(1);">Interseccion Calles</button>
+			<button type="button" class="btn" onclick="set_ejemplo(2);">Grilla Rectangular</button>
+
+			<!-- deprecados
+				<button onclick="set_ejemplo(3);">Ej 3</button>
+				<button onclick="set_ejemplo(4);">Ej 4</button>
+				<button onclick="set_ejemplo(6);">Ej 6</button>
+			-->
+
+				<button type="button" class="btn" onclick="set_ejemplo(5);">Interseccion Avenidas</button>
+				<button type="button" class="btn" onclick="set_ejemplo(7);">Ciudad de Bs.As.</button>
+				<button type="button" class="btn" onclick="set_ejemplo(8);">Valencia</button>
+
+			<!-- todo:
+				<button onclick="set_ejemplo(9);">Madrid</button>
+				<button onclick="set_ejemplo(10);">Barcelona</button>
+			-->
+			</div>
+		</div>
+	</div>	
+
+	<div class="panel panel-primary">
+		<div class="panel-heading">Optimización</div>
+		<div class="panel-body">
+		<div>
+			Flujo de Tráfico horizontal:
+			<input type="range" min="1" max="250" value="150" id="calle_h">
+			Tráfico Vertical:
+			<input type="range" min="1" max="250" value="10" id="calle_v">
+			<input type="button" value="Optimizar" onclick="optimizar()"/>	
+			<input type="button" value="Realtime" onclick="opt_rt();"/>	
+		</div>
+		</div>
+	</div>
+
+	<div class="panel panel-primary">
+		<div class="panel-heading">Algoritmo Genético</div>
+		<div class="panel-body">
+			Cromosoma:</br>
+			<input type="text" min="1" max="255" value="100" size="3" id="time_red_0" style="width: 40px;">
+			<input type="text" min="1" max="255" value="0" size="3" id="offset_0"style="width: 40px;">
+			<input type="text" min="1" max="255" value="100" size="3" id="time_red_1"style="width: 40px;">
+			<input type="text" min="1" max="255" value="50" size="3" id="offset_1"style="width: 40px;">
+			<input type="text" min="1" max="255" value="100" size="3" id="time_red_2"style="width: 40px;">
+			<input type="text" min="1" max="255" value="100" size="3" id="offset_2"style="width: 40px;">
+			<input type="text" min="1" max="255" value="100" size="3" id="time_red_3"style="width: 40px;">
+			<input type="text" min="1" max="255" value="150" size="3" id="offset_3"style="width: 40px;">
+			</br>
+			Tam. Población:
+			<input type="number" id="ga_poblacion" name="ga_poblacion" min="1" max="10000"style="width: 60px;">
+			</br>
+			Prob. Mutación:
+			<input type="number" id="ga_prob_mut" name="ga_prob_mut" min="0" max="100"style="width: 60px;">
+			</br>
+			Prob. Cruce:
+			<input type="number" id="ga_prob_cruce" name="ga_prob_cruce" min="0" max="100"style="width: 60px;">
+			</br>
+			<input type="button" value="Optimizar Genetico" onclick="optimizarGA()"/>	
+		</div>
+	</div>
+</div>
+</div>
+
+		
+</body>
+</html>

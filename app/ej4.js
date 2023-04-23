@@ -7,20 +7,23 @@ function initMap4()
 
     let p = false;
 
+    var x0 = 100;
+    var x1 = screen_dx - 100;
+    var y0 = 100;
+    var y1 = screen_dy - 100;
+
     // carretera horizontal
-    for(let j=100;j<500;j+=10)
+    for(let j=y0;j<y1;j+=10)
     {
-        for(let i=x0;i<x1;++i)
-            setRPixel(i,j,map_buffer,p?2:4);
-        setGPixel((x0+x1)/2,j,map_buffer,TRAFICO_H);
+        line(x0,j , x1 , j , map_buffer , p);
+        setGPixel((x0+x1)/2+(p?1:-1),j,map_buffer,TRAFICO_H);
         p = !p;
     }
     
     // carreteras vertical
-    for(let j=100;j<500;j+=10)
+    for(let j=x0;j<x1;j+=10)
     {
-        for(let i=y0;i<y1;++i)
-            setRPixel(j,i,map_buffer,p?1:8);
+        line(j , y0,  j , y1 , map_buffer , p);
         setGPixel(j,(y0+y1)/2,map_buffer,TRAFICO_V);
         p = !p;
 
