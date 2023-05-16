@@ -56,10 +56,10 @@ void main(void)
         co2 += float(x)/255.0* Kernel[i] * Kernel[j];
     }
     for(int i=0;i<64;++i)
-        S[i] = ruta_dir>0 ? vec3( 0.1) : vec3(co2,0.0,0.0);
+        S[i] = ruta_dir>0 ? vec3( 0.5) : vec3(co2,0.0,0.0);
 
     // carretera
-    switch(ruta_dir)
+    /*switch(ruta_dir)
     {
         case DERECHA:
         case IZQUIERDA:
@@ -71,7 +71,7 @@ void main(void)
             for(int i=0;i<8;++i)
                 S[i*8 + 0] = S[i*8 + 7] = vec3(0.3);
             break;
-    }
+    }*/
 
     if(tx2.b>0.0)	// semaforo 
     {

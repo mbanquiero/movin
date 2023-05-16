@@ -603,6 +603,13 @@ function initReduceTexture()
 		data[pos+3] = a;
 	}
 
+	function getRPixel(x,y,data , r)
+	{
+		var pos = (y*screen_dx + x)*4;
+		return data[pos];
+	}
+
+
 	function setSemaforo(x,y,data , tr, t0)
 	{
 		// tr = tiempo rojo
@@ -615,6 +622,10 @@ function initReduceTexture()
 
 	function line(x0, y0, x1, y1,data, inv) 
 	{
+		x0|=0;
+		y0|=0;
+		x1|=0;
+		y1|=0;
 		if(typeof inv!=="undefined" && inv)
 		{
 			let aux = x1;
@@ -788,5 +799,39 @@ function onMouseWheel(e) {
 
     var delta = e.wheelDelta;
 }
+
+
+function rectangle(x0,y0,x1,y1,map_buffer)
+{
+	let xm = (x0+x1)/2;
+	let ym = (y0+y1)/2;
+	line(x0,y0,x1,y0,map_buffer);
+    setGPixel(xm,y0,map_buffer,100);
+    line(x1,y0,x1,y1,map_buffer);
+    setGPixel(x1,ym,map_buffer,100);
+    line(x1,y1,x0,y1,map_buffer);
+    setGPixel(xm,y1,map_buffer,100);
+    line(x0,y1,x0,y0,map_buffer);
+    setGPixel(x0,ym,map_buffer,100);
+}
+
+
+function circle(xm,ym,r,map_buffer)
+{
+	let an = 0;
+	let x0 = xm+r*Math.cos(an);
+	let y0 = ym+r*Math.sin(an);
+	setGPixel(x0,y0,map_buffer,100);
+	for(let i=0;i<16;++i)
+	{
+		an += Math.PI/8;
+		let x1 = xm+r*Math.cos(an);
+		let y1 = ym+r*Math.sin(an);
+		line(x0,y0,x1,y1,map_buffer);
+		x0 = x1;
+		y0 = y1;
+	}
+}
+	
 
 	

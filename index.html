@@ -28,13 +28,10 @@
 
 <script type="text/javascript">
 
+	// ejemplo inicial
 	var ejemplo = 1;
-	var x0 = 10;
-	var x1 = 500;
-	var y0 = 10;
-	var y1 = 500;
 
-	
+
 	async function initMap()
 	{
 		semaforos = [];
@@ -361,8 +358,8 @@
 	{
 		await webGLStart();
 		initMap();
-		mostrarGrafico("ChartCo2");
-		mostrarGrafico("ChartAutos");
+		//mostrarGrafico("ChartCo2");
+		//mostrarGrafico("ChartAutos");
 
 
 		var slider_h = document.getElementById("calle_h");
@@ -404,7 +401,11 @@
 		if(ejemplo>=7)
 			tipo_render=RENDER_UNZOOM;
 		else
+		if(ejemplo==3)
+			tipo_render=RENDER_COPY;
+		else
 			tipo_render=RENDER_ZOOM;
+
 
 		offset_x = offset_y= 0;
 		restart();
@@ -484,19 +485,18 @@
 			<div class="btn-group-vertical">			
 			<button type="button" class="btn" onclick="set_ejemplo(1);">Interseccion Calles</button>
 			<button type="button" class="btn" onclick="set_ejemplo(2);">Grilla Rectangular</button>
+			<button type="button" class="btn" onclick="set_ejemplo(3);">PRESENTACION</button>
 
 			<!-- deprecados
-				<button onclick="set_ejemplo(3);">Ej 3</button>
 				<button onclick="set_ejemplo(4);">Ej 4</button>
 				<button onclick="set_ejemplo(6);">Ej 6</button>
 			-->
 
 				<button type="button" class="btn" onclick="set_ejemplo(5);">Interseccion Avenidas</button>
 				<button type="button" class="btn" onclick="set_ejemplo(7);">Ciudad de Bs.As.</button>
-				<button type="button" class="btn" onclick="set_ejemplo(8);">Valencia</button>
-
+				<button type="button" class="btn" onclick="set_ejemplo(8);">New York</button>
+				<button type="button" class="btn" onclick="set_ejemplo(9);">Madrid</button>
 			<!-- todo:
-				<button onclick="set_ejemplo(9);">Madrid</button>
 				<button onclick="set_ejemplo(10);">Barcelona</button>
 			-->
 			</div>

@@ -95,7 +95,9 @@ void main(void) {
         // ese dato es real, entonces, con dicha probabilidad genero un viaje
         // o borro el que habia. 
         // Sea como sea luego de este punto la densidad de trafico tiene que ser la real
-        if(rnd(seed)<tx.g)
+        float ka = 5.0;  // factor de densidad
+        if(rnd(seed)<tx.g*ka)
+        //if(rnd(seed)<0.1)
         {
             // se supone que no es un cruce
             int auto_dir;
