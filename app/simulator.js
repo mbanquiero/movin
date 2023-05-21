@@ -358,6 +358,7 @@ function initReduceTexture()
 	
 	function calcular_co2() 
 	{
+		sol_visitadas++;		// cantidad de veces que se llamo a fitness
 			
 		// establezo la configuracion de los semaforos
 		semaforos.forEach(s => 	{
@@ -367,7 +368,9 @@ function initReduceTexture()
 		gl.bindTexture(gl.TEXTURE_2D, map_texture);
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, screen_dx, screen_dy, 0, gl.RGBA, gl.UNSIGNED_BYTE, map_buffer);
 		step = 0;
-		vel_sim = 512;
+
+		//vel_sim = 512;
+		vel_sim = 64;
 
 		for(let Q=0;Q<vel_sim;++Q)
 		{

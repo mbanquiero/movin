@@ -16,7 +16,8 @@
 #ChartCo2 {
     position: absolute;
     left: 10px;
-    top: 600px;
+    top: 610px;
+	border: 1px solid gray;
 }
 
 #ChartAutos {

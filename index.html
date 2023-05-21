@@ -16,7 +16,7 @@
 <script type="text/javascript" src="app/ej5.js"></script>
 <script type="text/javascript" src="app/ej6.js"></script>
 <script type="text/javascript" src="app/ej7.js"></script>
-<script type="text/javascript" src="app/genetico.js"></script>
+<script type="text/javascript" src="app/genetico11.js"></script>
 
 <!--grafico de evolucion -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -95,6 +95,10 @@
 	}
 
 	// OPTIMIZACION 
+	var opt_step = 0;			// paso de optimizacion
+	var opt_max_step = 60;		// condicion de parada cuantos pasos de optimizacion 
+	var base_line;		// valor de base para comparar la optimizacion
+	var sol_visitadas = 0;		// cantidad de soluciones visitadas
 	function optimizar()
 	{
 		// hack para darle tiempo a dibujar en pantalla que esta optimizando...
@@ -103,12 +107,7 @@
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
 		ctx.fillText("OPTIMIZANDO....", 10,10);	
-		// espera una decima de segundo y llama a la funcion de optimizar
-		setTimeout(optimizarThread,100);
-	}
 
-	function optimizarThread()
-	{
 		// actualizo los valores de los controles: 
 		animating = false;
 		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
@@ -116,69 +115,148 @@
 		restart();
 
 
-		for(let i=0;i<30;++i)
-		{
-			// establezco la configuracion de los semaforos
-			random_optimize();
+		opt_step = 0;			// paso de optimizacion
+		gra_data = [];
+		gra_data_min = [];
+		sol_visitadas = 0;		// cantidad de veces que se llamo a fitness
+		gra_cant_f = [];		// cantidad de veces que se llamo a fitness
 
-			// evaluo la funcion de calcular_co2
-			var co2 = calcular_co2().co2;
-			// y me quedo con la mejor hasta ahora
-			if(co2<MIN_CO2 || MIN_CO2==-1)
-			{
-				MEJOR_RED_TIME = RED_TIME.slice();
-				MEJOR_OFFSET = OFFSET.slice();
-				MIN_CO2 = co2;
-			}
+
+		// espera una decima de segundo y llama a la funcion de optimizar
+		setTimeout(optimizarThread,100);
+
+
+	}
+
+	// pone todos los semaforos al 50%de rojo - 50%de verde y offset cero
+	function co2_base_line()
+	{
+		// prueba de concepto base-line
+		for(let n=0;n<cant_semaforos;++n)
+		{
+			RED_TIME[n] = 128;
+			OFFSET[n] = 0;
 		}
 
-		// muestro en pantalla la mejor solucion 
-		RED_TIME = MEJOR_RED_TIME.slice();
-		OFFSET = MEJOR_OFFSET.slice();
-		restart();
-		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
-		// y asi obtener el mapa de co2 para mostrar por pantalla
-		MIN_CO2 = calcular_co2().co2;
+		// evaluo la funcion de calcular_co2
+		return calcular_co2().co2;
 
-		drawSimulation();
-		ctx.fillStyle = "black";
-		ctx.fillRect(0, 0, 400, 20);		
-		ctx.fillStyle = "yellow";
-		ctx.font = "12px Courier New";
-		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0]/255*100,3) + "%  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,10);	
+	}
 
-		
+	var gra_data = [];
+	var gra_data_min = [];
+	function optimizarThread()
+	{
+		// establezco la configuracion de los semaforos
+		random_optimize();
+
+		// evaluo la funcion de calcular_co2
+		var co2 = calcular_co2().co2;
+		// y me quedo con la mejor hasta ahora
+		if(co2<MIN_CO2 || MIN_CO2==-1)
+		{
+			MEJOR_RED_TIME = RED_TIME.slice();
+			MEJOR_OFFSET = OFFSET.slice();
+			MIN_CO2 = co2;
+		}
+
+		// avanzo un paso de optimizacion y guardo el valor de co2
+		gra_data[opt_step] = co2;
+		gra_data_min[opt_step] = MIN_CO2;
+		opt_step++;
+
+		if(opt_step==opt_max_step)
+		{
+			// condicion de parada
+			// muestro en pantalla la mejor solucion 
+			RED_TIME = MEJOR_RED_TIME.slice();
+			OFFSET = MEJOR_OFFSET.slice();
+			// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
+			// y asi obtener el mapa de co2 para mostrar por pantalla
+			MIN_CO2 = calcular_co2().co2;
+			drawSimulation();
+			alert("Optimizacion finalizada MIN_CO2="+MIN_CO2);
+			drawEvolution(co2);
+		}
+		else
+		{
+			// sigo optimizando
+			drawSimulation();
+			drawEvolution(co2);
+			// sigo optimizando
+			setTimeout(optimizarThread,1);
+		}
+
 	}
 
 	// OPTIMIZACION CON ALGORITMO GENETICO
+	// globales
+	var poblacion;
+	var poblacion_creada;		// para sincronizar con la funcion asincrona de crear poblacion
+	var tamanoPoblacion;
+	var	longitudCromosoma;
+	var	tasaMutacion = 0.1;
+	var porcentajeSeleccion = 0.1;
+
+	var startTime, endTime;
+
 	function optimizarGA()
 	{
+
+		startTime = new Date();
+		// actualizo los valores de los controles: 
+		animating = false;
+		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
+		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
+		restart();
+
+		// computo el base line
+		base_line = co2_base_line();
+
 		// hack para darle tiempo a dibujar en pantalla que esta optimizando...
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		ctx.fillStyle = "black";
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
 		ctx.fillText("OPTIMIZANDO....", 10,10);	
+
+		gra_data = [];
+		gra_data_min = [];
+		sol_visitadas = 0;		// cantidad de veces que se llamo a fitness
+		gra_cant_f = [];		// cantidad de veces que se llamo a fitness
+
+
+		// llamo al algoritmo genetico
+		tamanoPoblacion = 200;
+		longitudCromosoma  = cant_semaforos*2;
+		tasaMutacion = 0.1;
+		porcentajeSeleccion = 0.1;
+
+
+		// creo la poblacion inicial: esto tarda mucho, porque llama al fitness para todos los individuos
+		poblacion_creada = false;
+		generarPoblacionInicial();
+		// cuando generarPoblacionInicial termina de crear la poblacion pone el flag en true
+
 		// espera una decima de segundo y llama a la funcion de optimizar
 		setTimeout(optimizarGAThread,100);
 	}
 
 	function optimizarGAThread()
 	{
+		// tengo que sincronizar con el thread que crea los individuos
+		if(!poblacion_creada)
+		{
+			// aun no termino de cargar la poblacion
+			setTimeout(optimizarGAThread,100);
+			return;
+		}
 
-		// actualizo los valores de los controles: 
-		animating = false;
-		TRAFICO_H =  parseInt(document.getElementById("calle_h").value);
-		TRAFICO_V =  parseInt(document.getElementById("calle_v").value);
-		restart();
 
-
-		// llamo al algoritmo genetico
-		const populationSize = 10;
-  		const individualLength = cant_semaforos*2;
-	  	const mutationRate = 0.01;
-  		const generations = 10;
-		const bestIndividual = geneticAlgorithm(populationSize, individualLength, mutationRate, generations);
+		// aplico un paso del algoritmo genetico (una generacion)
+  		geneticAlgorithm();
+		// tomo el cromosoma del mejor indivudio
+		var bestIndividual = poblacion[0].c;
 
     	// seteo la configuracion de los semaforos desde la info del cromosoma del individuo
 		MEJOR_RED_TIME = [];
@@ -189,23 +267,163 @@
 			MEJOR_OFFSET[i] = bestIndividual[2*i+1];		// el segundo byte representa el offset de tiempo
 		}
 
-		// muestro en pantalla la mejor solucion 
-		RED_TIME = MEJOR_RED_TIME.slice();
-		OFFSET = MEJOR_OFFSET.slice();
-		restart();
-		// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
-		// y asi obtener el mapa de co2 para mostrar por pantalla
-		MIN_CO2 = calcular_co2().co2;
+		// evaluo la funcion de calcular_co2
+		var co2 = calcular_co2().co2;
+		// y me quedo con la mejor hasta ahora
+		if(co2<MIN_CO2 || MIN_CO2==-1)
+		{
+			MEJOR_RED_TIME = RED_TIME.slice();
+			MEJOR_OFFSET = OFFSET.slice();
+			MIN_CO2 = co2;
+		}
 
-		drawSimulation();
+		// avanzo un paso de optimizacion y guardo el valor de co2
+		gra_data[opt_step] = co2;
+		gra_data_min[opt_step] = MIN_CO2;
+		gra_cant_f[opt_step] = sol_visitadas;
+		opt_step++;
 
+		if(opt_step==opt_max_step)
+		{
+			// condicion de parada
+			// muestro en pantalla la mejor solucion 
+			RED_TIME = MEJOR_RED_TIME.slice();
+			OFFSET = MEJOR_OFFSET.slice();
+			restart();
+			// hack: llamo a calcular_co2 para que vuelva a simular con la mejor opcion 
+			// y asi obtener el mapa de co2 para mostrar por pantalla
+			MIN_CO2 = calcular_co2().co2;
+			drawSimulation();
+
+			endTime = new Date();
+  			var timeDiff = endTime - startTime;
+	  		timeDiff /= 1000;
+  			alert("Optimizacion finalizada en" + timeDiff.toFixed() + "s. Cant. Semáforos="+cant_semaforos 
+					+ " Min co2="+MIN_CO2.toFixed() + "  Sol.Visitadas="+sol_visitadas );
+			drawEvolution(co2);
+		}
+		else
+		{
+			// sigo optimizando
+			drawSimulation();
+			drawEvolution(co2);
+			setTimeout(optimizarGAThread,1);
+		}
+	}
+
+	function drawEvolution(co2)
+	{
+		// muestro la evolucion
 		ctx.fillStyle = "black";
-		ctx.fillRect(0, 0, 400, 20);		
+		ctx.fillRect(0, 0, 1000, 20);		
 		ctx.fillStyle = "yellow";
 		ctx.font = "12px Courier New";
-		ctx.fillText("MEJOR RED TIME="+fn(MEJOR_RED_TIME[0]/255*100,3) + "%  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,25);	
+		ctx.fillText("PASO="+ opt_step +"Actual:" +fn(co2,10)+ " MEJOR RED TIME="+fn(MEJOR_RED_TIME[0]/255*100,3) + "%  MINIMA EMISION CO2="+fn(MIN_CO2,10), 10,10);	
 
-		
+		// grafico a mano el consumo de CO2
+		var ymin = base_line-10;
+		var ymax = base_line+10;
+		for(var i=0;i<opt_step;++i)
+		{
+			if(gra_data[i]>ymax)
+				ymax = gra_data[i];
+			if(gra_data[i]<ymin)
+				ymin = gra_data[i];
+		}
+
+		var canvas = document.getElementById("ChartCo2")
+		var H = canvas.height - 20;
+		var W = canvas.width - 20;
+		var dx = 20;
+		var ctx2 = canvas.getContext("2d");
+		ctx2.fillStyle = "rgb(255, 255, 255)";
+		ctx2.fillRect(0, 0, 2000, 1000);		
+		ctx2.font = "8px Verdana";
+		ctx2.textAlign = "center";
+
+		// baseline
+		ctx2.strokeStyle = "#00FF00";
+		ctx2.beginPath();
+		var y = (base_line-ymin)/(ymax - ymin) * H;
+		ctx2.moveTo(10, H-y);
+		ctx2.lineTo(10+ opt_step*dx, H-y);
+		ctx2.stroke();		
+		ctx2.fillStyle = "#00ff00";
+		ctx2.textBaseline = "top";
+		var ya = base_line/100000;
+		ctx2.fillText(ya.toFixed(1), 10, H-y+10);
+			
+		// grafico el actual
+		ctx2.strokeStyle = "#909090";
+		ctx2.beginPath();
+		y = (gra_data[0]-ymin)/(ymax - ymin) * H;
+		ctx2.moveTo(10, H-y);
+		for(var i=1;i<opt_step;++i)
+		{
+			y = (gra_data[i]-ymin)/(ymax - ymin) * H;
+			var x = 10+ i*dx;
+			ctx2.lineTo(x, H-y+10);
+
+		}
+		ctx2.stroke();		
+
+		// grafico el mejor hasta ahora
+		ctx2.strokeStyle = "#FF0000";
+		ctx2.beginPath();
+		y = (gra_data_min[0]-ymin)/(ymax - ymin) * H;
+		ctx2.moveTo(10, H-y);
+		for(var i=1;i<opt_step;++i)
+		{
+			y = (gra_data_min[i]-ymin)/(ymax - ymin) * H;
+			ctx2.lineTo(10+ i*dx, H-y+10);
+		}
+		ctx2.stroke();		
+
+		// labels
+		ctx2.strokeStyle = "rgb(240,240,240)";
+		for(var i=1;i<opt_step;++i)
+		{
+			var x = 10+ i*dx;
+			
+			if(Math.abs(gra_data[i]-gra_data_min[i])>1)
+			{
+				y = (gra_data[i]-ymin)/(ymax - ymin) * H;
+				var ya = gra_data[i]/100000;
+				ctx2.fillStyle = "#000000";
+				ctx2.textBaseline = "bottom";
+				ctx2.fillText(ya.toFixed(1), x, H-y+10);
+			}
+
+			if(Math.abs(gra_data_min[i]-gra_data_min[i-1])>1 || i==1)
+			{
+				y = (gra_data_min[i]-ymin)/(ymax - ymin) * H;
+				var ya = gra_data_min[i]/100000;
+				ctx2.fillStyle = "#FF0000";
+				ctx2.textBaseline = "top";
+				ctx2.fillText(ya.toFixed(1), x, H-y+10);
+			}
+
+			// linea vertical
+			ctx2.beginPath();
+			ctx2.moveTo(x, 0);
+			ctx2.lineTo(x, H+20);
+			ctx2.stroke();		
+
+		}
+
+		// lineas horizontales
+		for(var i =1;i<10;++i)
+		{
+			// linea vertical
+			ctx2.beginPath();
+			ctx2.moveTo(10, 10+i*H/10);
+			ctx2.lineTo(10+W, 10+i*H/10);
+			ctx2.stroke();		
+
+		}
+
+
+
 	}
 
 	function opt_rt()
@@ -358,8 +576,6 @@
 	{
 		await webGLStart();
 		initMap();
-		//mostrarGrafico("ChartCo2");
-		//mostrarGrafico("ChartAutos");
 
 
 		var slider_h = document.getElementById("calle_h");
@@ -424,13 +640,15 @@
 	<div id="canvas_container"> 
 		<canvas id="canvas"  width="1200" height="600" tabindex="1"></canvas>
 		<canvas id="text_canvas" width="1200" height="600"></canvas>
-		<div style="max-width:400px; max-height:150px;">
-			<canvas id="ChartCo2" width="400" height="150" />
+
+		<div style="max-width:100%; max-height:140px;">
+			<canvas id="ChartCo2" width="1200" height="140" />
 		</div>
+		<!--
 		<div style="max-width:400px; max-height:150px;">
 			<canvas id="ChartAutos" width="400" height="150" />
 		</div>
-
+		-->
 		<div style = "position:absolute; left:950px; top:5px;">
 			<div class="btn-group"">
 				<button type="button" class="btn btn-primary btn-xs" 
